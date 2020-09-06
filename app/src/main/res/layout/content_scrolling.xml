@@ -89,17 +89,20 @@
 
         <Button
             android:id="@+id/btnQuery"
+            style="@android:style/Widget.Material.Button.Colored"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="받은 문자 조회" />
-
+            android:layout_height="82dp"
+            android:layout_marginTop="25dp"
+            android:text="받은 문자 조회"
+            android:textAppearance="@style/TextAppearance.AppCompat.Large"
+            android:textColor="@color/colorPrimaryDark" />
 
         <EditText
             android:id="@+id/result"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="@dimen/text_margin"
-            android:text=""
+            android:text="먼저 조회를 하십시오"
             android:textSize="15sp" />
 
     </LinearLayout>

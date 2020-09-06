@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
 import android.provider.Telephony
 import android.telephony.SmsManager
 import android.util.Log
@@ -16,6 +17,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.os.postDelayed
 import com.google.android.material.appbar.CollapsingToolbarLayout
 import kotlinx.android.synthetic.main.activity_scrolling.*
 import kotlinx.android.synthetic.main.content_scrolling.*
@@ -30,7 +32,7 @@ import kotlin.collections.ArrayList
 
 class ScrollingActivity : AppCompatActivity() {
 
-    //퍼미션 응답 처리 코드
+    private val SEND_MMS = 10001
     private val multiplePermissionsCode = 100
 
     //필요한 퍼미션 리스트
@@ -40,6 +42,8 @@ class ScrollingActivity : AppCompatActivity() {
         , Manifest.permission.SEND_SMS
     )
 
+
+    val mmsQueue: Queue<String> = LinkedList()
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,22 +82,30 @@ class ScrollingActivity : AppCompatActivity() {
         btnQuery.setOnClickListener {
             setEditText(result, "조회 중입니다")
 
-            rememberCondition()
 
-            val smsList = readSMS(this, dateAfter.text.toString(), fromNumber.text.toString(), includingText.text.toString())
-            val mmsList = readMMS(this, dateAfter.text.toString(), fromNumber.text.toString(), includingText.text.toString())
+            Handler().postDelayed(delayInMillis = 100) {
 
-            var s = "보낼 내용을 검토하십시오\n\n화살표(-->)를 삭제하면 발송되지 않습니다\n\nSMS는 자동 발송되며\nMMS는 내용 확인 후 발송합니다\n\n\n[SMS 수신 내역]\n\n"
-            for (x in smsList) {
-                s += "${x}\n\n"
+                rememberCondition()
+
+                var smsList = readSMS(this, dateAfter.text.toString(), fromNumber.text.toString(), includingText.text.toString())
+                var mmsList = readMMS(this, dateAfter.text.toString(), fromNumber.text.toString(), includingText.text.toString())
+
+                smsList = sortList(smsList)
+                mmsList = sortList(mmsList)
+
+
+                var s = "보낼 내용을 검토하십시오\n\n화살표(-->)를 삭제하면 발송되지 않습니다\n\nSMS는 자동 발송되며\nMMS는 내용 확인 후 발송합니다\n\n\n[SMS 수신 내역]\n\n\n"
+                for (x in smsList) {
+                    s += "${x}\n\n\n"
+                }
+
+                s += "\n\n\n[MMS 수신 내역]\n\n\n"
+                for (x in mmsList) {
+                    s += "${x}\n\n\n"
+                }
+
+                setEditText(result, s)
             }
-
-            s += "\n\n[MMS 수신 내역]\n\n"
-            for (x in mmsList) {
-                s += "${x}\n\n"
-            }
-
-            setEditText(result, s)
         }
 
     }
@@ -131,18 +143,19 @@ class ScrollingActivity : AppCompatActivity() {
 
                 println("${n++} MMS : $y")
 
-                sendMMS(toNumber.text.toString(), y)
+                mmsQueue.add(y)
             }
         }
 
+        sendMMS()
     }
 
     private fun sortList(list: MutableList<String>): MutableList<String> {
         val com = Comparator { o1: String, o2: String ->
             return@Comparator if (o1 > o2) {
-                -1
-            } else {
                 1
+            } else {
+                -1
             }
         }
 
@@ -245,7 +258,7 @@ class ScrollingActivity : AppCompatActivity() {
     private fun sendSMS(phoneNo: String, sms: String) {
         try {
             var msg = sms.replace("[Web발신] ", "")
-            if(msg.length > 70) msg = msg.substring(0, 70)
+            if (msg.length > 70) msg = msg.substring(0, 70)
 
             println("${msg.length} : $msg")
 
@@ -259,19 +272,21 @@ class ScrollingActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendMMS(phoneNo: String, msg: String) {
+    private fun sendMMS() {
+        val msg = mmsQueue.poll() ?: return
+
         try {
             val sendIntent = Intent(Intent.ACTION_SEND)
 
             sendIntent.setClassName("com.android.mms", "com.android.mms.ui.ComposeMessageActivity");
-            sendIntent.putExtra("address", phoneNo)
+            sendIntent.putExtra("address", toNumber.text.toString())
             sendIntent.putExtra("subject", "")
             sendIntent.putExtra("sms_body", msg)
 
             //sendIntent.setType("image/*")
             //sendIntent.putExtra(Intent.EXTRA_STREAM, imgUri)
 
-            startActivity(sendIntent)
+            startActivityForResult(sendIntent, SEND_MMS)
 
         } catch (e: Exception) {
             e.printStackTrace()
@@ -339,8 +354,6 @@ class ScrollingActivity : AppCompatActivity() {
     }
 
 
-
-
     private fun checkPermissions() {
         //거절되었거나 아직 수락하지 않은 권한(퍼미션)을 저장할 문자열 배열 리스트
         var rejectedPermissionList = ArrayList<String>()
@@ -375,6 +388,16 @@ class ScrollingActivity : AppCompatActivity() {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        when (requestCode) {
+            SEND_MMS -> {
+                sendMMS()
             }
         }
     }
