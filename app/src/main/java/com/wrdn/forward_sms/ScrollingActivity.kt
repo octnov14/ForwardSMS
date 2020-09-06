@@ -57,7 +57,7 @@ class ScrollingActivity : AppCompatActivity() {
                 setPositiveButton(
                     "보내기"
                 ) { _, _ ->
-                    sendSMS("01023573773", "한글도 잘 되겠지? abc 123")
+                    send()
                 }
 
                 setNegativeButton(
@@ -89,6 +89,21 @@ class ScrollingActivity : AppCompatActivity() {
 
     }
 
+    private fun send() {
+        //sendSMS("01023573773", "한글도 잘 되겠지? abc 123")
+
+        val arr = result.text.toString().split("\n")
+
+        for(x in arr) {
+            if(x.startsWith("--> ")) {
+                val y = x.replace("--> ", "")
+
+                sendSMS(toNumber.text.toString(), y)
+            }
+        }
+
+    }
+
     private fun sortList(list: MutableList<String>): MutableList<String> {
         val com = Comparator { o1: String, o2: String ->
             return@Comparator if(o1 > o2) {
@@ -108,8 +123,8 @@ class ScrollingActivity : AppCompatActivity() {
     private fun setDefaultValue() {
         //setEditText(dateAfter, YCalendar.displayYYYYMMDD())
         setEditText(dateAfter, "20200905")
-        setEditText(fromNumber, "15447200")
-        setEditText(includingText, "신한카드(")
+        setEditText(fromNumber, "")
+        setEditText(includingText, "")
         setEditText(toNumber, "01023573773")
     }
 
@@ -132,7 +147,7 @@ class ScrollingActivity : AppCompatActivity() {
                 if (yc.getYYYYMMDD() < dateAfter) break
 
                 if(number.indexOf(num) >= 0 && body.indexOf(inct) >= 0) {
-                    rtn.add("${yc}   (${number})   SMS\n--> ${body};")
+                    rtn.add("${yc}   (${number})   SMS\n--> ${body}")
                 }
 
 
@@ -181,7 +196,7 @@ class ScrollingActivity : AppCompatActivity() {
 
 
                 if(number.indexOf(num) >= 0 && body.indexOf(inct) >= 0) {
-                    rtn.add("${yc}   (${number})   MMS\n--> ${body};")
+                    rtn.add("${yc}   (${number})   MMS\n--> ${body}")
                 }
 
 
