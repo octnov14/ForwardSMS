@@ -169,7 +169,7 @@ class YCalendar : GregorianCalendar {
         setSecond(s)
     }
 
-    private fun format(s: String): String {
+    fun format(s: String): String {
         return try {
             SimpleDateFormat(s, Locale.getDefault()).format(getTime())
         } catch (e: Exception) {

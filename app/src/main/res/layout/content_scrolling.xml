@@ -22,13 +22,13 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="수신 번호 : "
-                />
+                android:text="번호 조건 : " />
 
             <EditText
+                android:id="@+id/fromNumber"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:hint="수신 번호" />
+                android:hint="번호 입력"/>
 
         </LinearLayout>
 
@@ -40,21 +40,47 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="수신 내용 : "
-                />
+                android:text="내용 조건 : " />
 
             <EditText
+                android:id="@+id/regexpText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:hint="수신 내용" />
+                android:hint="내용 일부분 입력(정규식 가능)"/>
 
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="누구에게 보낼까요?" />
+
+            <EditText
+                android:id="@+id/toNumber"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:hint="전달 받을 전화 번호 입력"/>
+
+        </LinearLayout>
+
+
+        <Button
+            android:id="@+id/button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="받은 문자 조회" />
+
         <TextView
+            android:id="@+id/result"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="@dimen/text_margin"
-            android:text="@string/large_text" />
+            android:text="" />
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

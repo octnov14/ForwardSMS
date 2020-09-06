@@ -6,13 +6,14 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Telephony
+import android.telephony.SmsManager
 import android.util.Log
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.material.appbar.CollapsingToolbarLayout
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.snackbar.Snackbar
 import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStream
@@ -29,7 +30,8 @@ class ScrollingActivity : AppCompatActivity() {
     //필요한 퍼미션 리스트
     //원하는 퍼미션을 이곳에 추가하면 된다.
     private val requiredPermissions = arrayOf(
-        Manifest.permission.READ_SMS
+        Manifest.permission.READ_SMS,
+        Manifest.permission.SEND_SMS
     )
 
 
@@ -42,27 +44,52 @@ class ScrollingActivity : AppCompatActivity() {
         checkPermissions()
 
         findViewById<FloatingActionButton>(R.id.fab).setOnClickListener { view ->
-            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show()
+
+            sendSMS("01023573773", "한글도 잘 되겠지? abc 123")
+
+//            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG).setAction("Action", null).show()
         }
 
 
 
-        readMMS(this)
-        readSMS(this)
+        readMMS(this, "20200812")
+        readSMS(this, "20200812")
 
     }
 
+
+    private fun readSMS(context: Context, dateAfter: String) {
+        val uri = Telephony.Sms.Inbox.CONTENT_URI  // Uri.parse("content://sms/inbox")
+
+        val cursor = context.contentResolver.query(uri, null, null, null, "date desc")
+
+        if (cursor != null && cursor.moveToFirst()) {
+            do {
+                val smsDate = cursor.getString(cursor.getColumnIndexOrThrow("date"))
+                val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
+                val body = cursor.getString(cursor.getColumnIndexOrThrow("body"))
+
+                val yc = YCalendar(Date(smsDate.toLong()))
+                if(yc.getYYYYMMDD() < dateAfter) break
+
+
+                System.out.printf("%s;   %s; %s; %s\n", smsDate, yc.getYMDHMS(), number, body.replace("""\s""".toRegex(), " "))
+
+            } while (cursor.moveToNext())
+        }
+
+        cursor?.close()
+    }
+
+
     // 참조 URL
     // https://www.it-swarm.dev/ko/android/mms-android%EC%9D%98-%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%A5%BC-%EC%9D%BD%EB%8A%94-%EB%B0%A9%EB%B2%95/969694767/
-
-    private fun readMMS(context: Context) {
+    private fun readMMS(context: Context, dateAfter: String) {
         val uri = Telephony.Mms.Inbox.CONTENT_URI
 
         val proj = arrayOf("*")
-        val cursor = context.contentResolver.query(uri, proj, null, null, "_id desc")
+        val cursor = context.contentResolver.query(uri, proj, null, null, "date desc")
 
-        var n = 0
         if (cursor != null) {
             cursor.moveToFirst()
 
@@ -80,16 +107,30 @@ class ScrollingActivity : AppCompatActivity() {
 
                 val id = cursor.getString(cursor.getColumnIndexOrThrow("_id"))
                 val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
+                val date = cursor.getString(cursor.getColumnIndexOrThrow("date"))
                 val body = getMMSBody(id)
 
+                val yc = YCalendar(Date((date+"000").toLong()))
+                if(yc.getYYYYMMDD() < dateAfter) break
 
-                System.out.printf("%s; %s\n", number, body)
-
-                if(n++ > 300) break
+                System.out.printf("%s;   %s;  %s;  %s\n", date, yc, number, body)
 
             } while (cursor.moveToNext())
 
             cursor.close()
+        }
+    }
+
+    fun sendSMS(phoneNo: String, sms: String) {
+        try {
+            //전송
+            val smsManager: SmsManager = SmsManager.getDefault()
+            smsManager.sendTextMessage(phoneNo, null, sms, null, null)
+            Toast.makeText(applicationContext, "전송 완료!", Toast.LENGTH_LONG).show()
+
+        } catch (e: Exception) {
+            Toast.makeText(applicationContext, "전송 실패", Toast.LENGTH_LONG).show()
+            e.printStackTrace()
         }
     }
 
@@ -153,29 +194,6 @@ class ScrollingActivity : AppCompatActivity() {
     }
 
 
-    private fun readSMS(context: Context) {
-        val uri = Telephony.Sms.Inbox.CONTENT_URI  // Uri.parse("content://sms/inbox")
-
-        val cursor = context.contentResolver.query(uri, null, null, null, null)
-
-        if (cursor != null && cursor.moveToFirst()) {
-            do {
-                val smsDate = cursor.getString(cursor.getColumnIndexOrThrow("date"))
-                val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
-                val body = cursor.getString(cursor.getColumnIndexOrThrow("body"))
-
-                val yc = YCalendar(smsDate)
-
-
-                System.out.printf("%s; %s; %s; %s\n", Date(smsDate.toLong()), yc, number, body.replace("""\s""".toRegex(), " "))
-
-            } while (cursor.moveToNext())
-        }
-
-        cursor?.close()
-    }
-
-
     private fun sample__getSmsConversation() {
         getSmsConversation(this, "15447200") { conversations ->
             conversations?.forEach { conversation ->
@@ -194,7 +212,7 @@ class ScrollingActivity : AppCompatActivity() {
     class Conversation(val number: String, val message: List<Message>)
     class Message(val number: String, val body: String, val date: Date)
 
-    fun getSmsConversation(context: Context, number: String? = null, completion: (conversations: List<Conversation>?) -> Unit) {
+    private fun getSmsConversation(context: Context, number: String? = null, completion: (conversations: List<Conversation>?) -> Unit) {
         val cursor = context.contentResolver.query(Telephony.Sms.CONTENT_URI, null, null, null, null)
 //        val cursor = context.contentResolver.query(Uri.parse("content://sms/inbox"), null, null, null, null)
 
