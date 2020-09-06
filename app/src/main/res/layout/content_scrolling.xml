@@ -22,6 +22,24 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="날짜 조건 : " />
+
+            <EditText
+                android:id="@+id/dateAfter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:hint="yyyyMMdd 이후만 조회"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:text="번호 조건 : " />
 
             <EditText
@@ -43,10 +61,10 @@
                 android:text="내용 조건 : " />
 
             <EditText
-                android:id="@+id/regexpText"
+                android:id="@+id/includingText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:hint="내용 일부분 입력(정규식 가능)"/>
+                android:hint="내용 일부분 입력"/>
 
         </LinearLayout>
 
@@ -70,17 +88,19 @@
 
 
         <Button
-            android:id="@+id/button"
+            android:id="@+id/btnQuery"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="받은 문자 조회" />
 
-        <TextView
+
+        <EditText
             android:id="@+id/result"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="@dimen/text_margin"
-            android:text="" />
+            android:text=""
+            android:textSize="15sp" />
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

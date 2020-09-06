@@ -8,12 +8,16 @@ import android.os.Bundle
 import android.provider.Telephony
 import android.telephony.SmsManager
 import android.util.Log
+import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.material.appbar.CollapsingToolbarLayout
-import com.google.android.material.floatingactionbutton.FloatingActionButton
+import kotlinx.android.synthetic.main.activity_scrolling.*
+import kotlinx.android.synthetic.main.content_scrolling.*
 import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStream
@@ -43,22 +47,77 @@ class ScrollingActivity : AppCompatActivity() {
 
         checkPermissions()
 
-        findViewById<FloatingActionButton>(R.id.fab).setOnClickListener { view ->
+        setDefaultValue()
 
-            sendSMS("01023573773", "한글도 잘 되겠지? abc 123")
+        fab.setOnClickListener {
+            AlertDialog.Builder(this).run {
+                setTitle("문자를 보낼까요?")
+                setMessage("한번에 많은 문자가 보내지니 신중히 살펴보십시오~")
 
-//            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG).setAction("Action", null).show()
+                setPositiveButton(
+                    "보내기"
+                ) { _, _ ->
+                    sendSMS("01023573773", "한글도 잘 되겠지? abc 123")
+                }
+
+                setNegativeButton(
+                    "취소"
+                ) { _, _ ->
+                }
+
+                show()
+            }
+            //Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG).setAction("Action", null).show()
         }
 
 
+        btnQuery.setOnClickListener {
+            setEditText(result, "조회 중입니다")
 
-        readMMS(this, "20200812")
-        readSMS(this, "20200812")
+            var list = readMMS(this, dateAfter.text.toString(), fromNumber.text.toString(), includingText.text.toString())
+            list.addAll(readSMS(this, dateAfter.text.toString(), fromNumber.text.toString(), includingText.text.toString()))
+
+            list = sortList(list)
+
+            var s = ""
+            for (x in list) {
+                s += "${x}\n\n"
+            }
+
+            setEditText(result, "보낼 내용을 검토하십시오\n보내지 않을 문자는 앞에 있는 화살표(-->)를 삭제하세요\n\n${s}")
+        }
 
     }
 
+    private fun sortList(list: MutableList<String>): MutableList<String> {
+        val com = Comparator { o1: String, o2: String ->
+            return@Comparator if(o1 > o2) {
+                -1
+            } else {
+                1
+            }
+        }
 
-    private fun readSMS(context: Context, dateAfter: String) {
+        return list.sortedWith(com).toMutableList()
+    }
+
+    private fun setEditText(ed: EditText, s: String) {
+        ed.setText(s, TextView.BufferType.EDITABLE)
+    }
+
+    private fun setDefaultValue() {
+        //setEditText(dateAfter, YCalendar.displayYYYYMMDD())
+        setEditText(dateAfter, "20200905")
+        setEditText(fromNumber, "15447200")
+        setEditText(includingText, "신한카드(")
+        setEditText(toNumber, "01023573773")
+    }
+
+
+    private fun readSMS(context: Context, dateAfter: String, num: String, inct: String): MutableList<String> {
+        val rtn = ArrayList<String>()
+
+
         val uri = Telephony.Sms.Inbox.CONTENT_URI  // Uri.parse("content://sms/inbox")
 
         val cursor = context.contentResolver.query(uri, null, null, null, "date desc")
@@ -67,24 +126,31 @@ class ScrollingActivity : AppCompatActivity() {
             do {
                 val smsDate = cursor.getString(cursor.getColumnIndexOrThrow("date"))
                 val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
-                val body = cursor.getString(cursor.getColumnIndexOrThrow("body"))
+                val body = cursor.getString(cursor.getColumnIndexOrThrow("body")).replace("""\s""".toRegex(), " ")
 
                 val yc = YCalendar(Date(smsDate.toLong()))
-                if(yc.getYYYYMMDD() < dateAfter) break
+                if (yc.getYYYYMMDD() < dateAfter) break
 
+                if(number.indexOf(num) >= 0 && body.indexOf(inct) >= 0) {
+                    rtn.add("${yc}   (${number})   SMS\n--> ${body};")
+                }
 
-                System.out.printf("%s;   %s; %s; %s\n", smsDate, yc.getYMDHMS(), number, body.replace("""\s""".toRegex(), " "))
 
             } while (cursor.moveToNext())
         }
 
         cursor?.close()
+
+        return rtn
     }
 
 
     // 참조 URL
     // https://www.it-swarm.dev/ko/android/mms-android%EC%9D%98-%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%A5%BC-%EC%9D%BD%EB%8A%94-%EB%B0%A9%EB%B2%95/969694767/
-    private fun readMMS(context: Context, dateAfter: String) {
+    private fun readMMS(context: Context, dateAfter: String, num: String, inct: String): MutableList<String> {
+        val rtn = ArrayList<String>()
+
+
         val uri = Telephony.Mms.Inbox.CONTENT_URI
 
         val proj = arrayOf("*")
@@ -95,7 +161,7 @@ class ScrollingActivity : AppCompatActivity() {
 
             do {
                 // mms columns
-                // date 1970년으로 다 똑같다 -> 무의미
+                // date 에는 뒤에 000 을 붙여야 한다!!!!!!!!!!
                 // 아이디, 수신번호만 의미있다
                 // ct_t 는 컨텐트 타입이다
                 // Available columns: [_id, thread_id, date, date_sent, msg_box, read, m_id, sub, sub_cs, ct_t, ct_l, exp,
@@ -106,19 +172,25 @@ class ScrollingActivity : AppCompatActivity() {
                 // kt_tm_send_type, line_address, notification]
 
                 val id = cursor.getString(cursor.getColumnIndexOrThrow("_id"))
-                val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
                 val date = cursor.getString(cursor.getColumnIndexOrThrow("date"))
-                val body = getMMSBody(id)
+                val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
+                val body = getMMSBody(id).replace("""\s""".toRegex(), " ")
 
-                val yc = YCalendar(Date((date+"000").toLong()))
-                if(yc.getYYYYMMDD() < dateAfter) break
+                val yc = YCalendar(Date("${date}000".toLong()))
+                if (yc.getYYYYMMDD() < dateAfter) break
 
-                System.out.printf("%s;   %s;  %s;  %s\n", date, yc, number, body)
+
+                if(number.indexOf(num) >= 0 && body.indexOf(inct) >= 0) {
+                    rtn.add("${yc}   (${number})   MMS\n--> ${body};")
+                }
+
 
             } while (cursor.moveToNext())
 
             cursor.close()
         }
+
+        return rtn
     }
 
     fun sendSMS(phoneNo: String, sms: String) {
