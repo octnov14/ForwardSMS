@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
 import android.provider.Telephony
 import android.telephony.SmsManager
 import android.util.Log
@@ -17,10 +16,10 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.os.postDelayed
 import com.google.android.material.appbar.CollapsingToolbarLayout
 import kotlinx.android.synthetic.main.activity_scrolling.*
 import kotlinx.android.synthetic.main.content_scrolling.*
+import kotlinx.coroutines.*
 import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStream
@@ -44,6 +43,10 @@ class ScrollingActivity : AppCompatActivity() {
 
 
     val mmsQueue: Queue<String> = LinkedList()
+
+
+    private var viewModelJob = Job()
+    private val uiScope = CoroutineScope(Dispatchers.Main + viewModelJob)
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,38 +86,53 @@ class ScrollingActivity : AppCompatActivity() {
             setEditText(result, "조회 중입니다")
 
 
-            Handler().postDelayed(delayInMillis = 100) {
-
-                rememberCondition()
-
-                var smsList = readSMS(this, dateAfter.text.toString(), fromNumber.text.toString(), includingText.text.toString())
-                var mmsList = readMMS(this, dateAfter.text.toString(), fromNumber.text.toString(), includingText.text.toString())
-
-                smsList = sortList(smsList)
-                mmsList = sortList(mmsList)
+            uiScope.launch {
+                withContext(Dispatchers.IO) {
+                    var dbefore = dateBefore.text.toString()
+                    if(dbefore == "") dbefore = "99999999"
 
 
-                var s = "보낼 내용을 검토하십시오\n\n화살표(-->)를 삭제하면 발송되지 않습니다\n\nSMS는 자동 발송되며\nMMS는 내용 확인 후 발송합니다\n\n\n[SMS 수신 내역]\n\n\n"
-                for (x in smsList) {
-                    s += "${x}\n\n\n"
+                    var smsList = readSMS(this@ScrollingActivity, dateAfter.text.toString(), dbefore, fromNumber.text.toString(), includingText.text.toString())
+                    var mmsList = readMMS(this@ScrollingActivity, dateAfter.text.toString(), dbefore, fromNumber.text.toString(), includingText.text.toString())
+
+                    smsList = sortList(smsList)
+                    mmsList = sortList(mmsList)
+
+
+                    var s = "보낼 내용을 검토하십시오\n\n화살표(-->)를 삭제하면 발송되지 않습니다\n\nSMS는 자동 발송되며\nMMS는 내용 확인 후 발송합니다\n\n\n[SMS 수신 내역]\n\n\n"
+                    for (x in smsList) {
+                        s += "${x}\n\n\n"
+                    }
+
+                    s += "\n\n\n[MMS 수신 내역]\n\n\n"
+                    for (x in mmsList) {
+                        s += "${x}\n\n\n"
+                    }
+
+                    withContext(Dispatchers.Main){
+                        setEditText(result, s)
+                    }
                 }
-
-                s += "\n\n\n[MMS 수신 내역]\n\n\n"
-                for (x in mmsList) {
-                    s += "${x}\n\n\n"
-                }
-
-                setEditText(result, s)
             }
         }
 
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+
+        rememberCondition()
+
+        viewModelJob.cancel()
+    }
+
 
     private fun rememberCondition() {
         val pref = getSharedPreferences("Config", Context.MODE_PRIVATE)
 
         pref.edit().let { conf ->
             conf.putString("dateAfter", dateAfter.text.toString())
+            conf.putString("dateBefore", dateBefore.text.toString())
             conf.putString("fromNumber", fromNumber.text.toString())
             conf.putString("includingText", includingText.text.toString())
             conf.putString("toNumber", toNumber.text.toString())
@@ -170,13 +188,14 @@ class ScrollingActivity : AppCompatActivity() {
         val pref = getSharedPreferences("Config", Context.MODE_PRIVATE)
 
         pref.getString("dateAfter", YCalendar.displayYYYYMMDD())?.let { setEditText(dateAfter, it) }
+        pref.getString("dateBefore", "99999999")?.let { setEditText(dateBefore, it) }
         pref.getString("fromNumber", "")?.let { setEditText(fromNumber, it) }
         pref.getString("includingText", "")?.let { setEditText(includingText, it) }
         pref.getString("toNumber", "")?.let { setEditText(toNumber, it) }
     }
 
 
-    private fun readSMS(context: Context, dateAfter: String, num: String, inct: String): MutableList<String> {
+    private fun readSMS(context: Context, dateAfter: String, dateBefore: String, num: String, inct: String): MutableList<String> {
         val rtn = ArrayList<String>()
 
 
@@ -186,14 +205,19 @@ class ScrollingActivity : AppCompatActivity() {
 
         if (cursor != null && cursor.moveToFirst()) {
             do {
+                viewModelJob.ensureActive()
+
                 val smsDate = cursor.getString(cursor.getColumnIndexOrThrow("date"))
                 val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
                 val body = cursor.getString(cursor.getColumnIndexOrThrow("body")).replace("""\s""".toRegex(), " ")
 
+                Log.i("lala", "$smsDate;   $number;   $body")
+
                 val yc = YCalendar(Date(smsDate.toLong()))
                 if (yc.getYYYYMMDD() < dateAfter) break
 
-                if (number.indexOf(num) >= 0 && body.indexOf(inct) >= 0) {
+                
+                if (yc.getYYYYMMDD() <= dateBefore && number.indexOf(num) >= 0 && body.indexOf(inct) >= 0) {
                     rtn.add("${yc}   (${number})\n--> SMS ${body}")
                 }
 
@@ -209,7 +233,7 @@ class ScrollingActivity : AppCompatActivity() {
 
     // 참조 URL
     // https://www.it-swarm.dev/ko/android/mms-android%EC%9D%98-%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%A5%BC-%EC%9D%BD%EB%8A%94-%EB%B0%A9%EB%B2%95/969694767/
-    private fun readMMS(context: Context, dateAfter: String, num: String, inct: String): MutableList<String> {
+    private fun readMMS(context: Context, dateAfter: String, dateBefore: String, num: String, inct: String): MutableList<String> {
         val rtn = ArrayList<String>()
 
 
@@ -222,6 +246,8 @@ class ScrollingActivity : AppCompatActivity() {
             cursor.moveToFirst()
 
             do {
+                viewModelJob.ensureActive()
+
                 // mms columns
                 // date 에는 뒤에 000 을 붙여야 한다!!!!!!!!!!
                 // 아이디, 수신번호만 의미있다
@@ -238,11 +264,13 @@ class ScrollingActivity : AppCompatActivity() {
                 val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
                 val body = getMMSBody(id).replace("""\s""".toRegex(), " ")
 
+                Log.i("lala", "$date;   $number;   $body")
+
                 val yc = YCalendar(Date("${date}000".toLong()))
                 if (yc.getYYYYMMDD() < dateAfter) break
 
 
-                if (number.indexOf(num) >= 0 && body.indexOf(inct) >= 0) {
+                if (yc.getYYYYMMDD() <= dateBefore && number.indexOf(num) >= 0 && body.indexOf(inct) >= 0) {
                     rtn.add("${yc}   (${number})\n--> MMS ${body}")
                 }
 
