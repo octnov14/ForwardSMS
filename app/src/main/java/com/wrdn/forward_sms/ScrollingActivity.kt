@@ -54,8 +54,8 @@ class ScrollingActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_scrolling)
-        setSupportActionBar(findViewById(R.id.toolbar))
-        findViewById<CollapsingToolbarLayout>(R.id.toolbar_layout).title = title
+        setSupportActionBar(toolbar) //setSupportActionBar(findViewById(R.id.toolbar))
+        toolbar_layout.title = "받은 문자 조회 후 한번에 전달할 수 있습니다" //findViewById<CollapsingToolbarLayout>(R.id.toolbar_layout).title = title
 
 
         checkPermissions()
