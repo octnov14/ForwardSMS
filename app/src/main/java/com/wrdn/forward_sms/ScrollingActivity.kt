@@ -125,8 +125,8 @@ class ScrollingActivity : AppCompatActivity() {
         rememberCondition()
 
         AlertDialog.Builder(this).run {
-            setTitle("문자를 보낼까요?")
-            setMessage("한번에 많은 문자가 보내지니 신중히 살펴보십시오~")
+            //setTitle("문자를 보낼까요?")
+            setMessage("문자 메시지 요금이\n발생할 수 있습니다!!\n\n한번에 많은 문자가 보내지니\n신중히 살펴보십시오!\n\n문자를 보내겠습니까?")
 
             setPositiveButton(
                 "보내기"
