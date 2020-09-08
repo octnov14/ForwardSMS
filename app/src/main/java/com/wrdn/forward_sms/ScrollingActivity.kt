@@ -1,6 +1,7 @@
 package com.wrdn.forward_sms
 
 import android.Manifest
+import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -9,6 +10,7 @@ import android.os.Bundle
 import android.provider.Telephony
 import android.telephony.SmsManager
 import android.util.Log
+import android.view.View
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
@@ -55,82 +57,109 @@ class ScrollingActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.toolbar))
         findViewById<CollapsingToolbarLayout>(R.id.toolbar_layout).title = title
 
+
         checkPermissions()
 
         setDefaultValue()
 
 
+        dateAfter.setOnFocusChangeListener { v, hasFocus -> if (hasFocus) showDatePicker(v as EditText?) }
+        dateAfter.setOnClickListener { showDatePicker(it as EditText?) }
 
-        fab.setOnClickListener {
-            rememberCondition()
-
-            AlertDialog.Builder(this).run {
-                setTitle("문자를 보낼까요?")
-                setMessage("한번에 많은 문자가 보내지니 신중히 살펴보십시오~")
-
-                setPositiveButton(
-                    "보내기"
-                ) { _, _ ->
-                    send()
-                }
-
-                setNegativeButton(
-                    "취소"
-                ) { _, _ ->
-                }
-
-                show()
-            }
-            //Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG).setAction("Action", null).show()
-        }
+        dateBefore.setOnFocusChangeListener { v, hasFocus -> if (hasFocus) showDatePicker(v as EditText?) }
+        dateBefore.setOnClickListener { showDatePicker(it as EditText?) }
 
 
-        btnQuery.setOnClickListener {
-            rememberCondition()
+        btnQuery.setOnClickListener { query() }
 
-            setEditText(result, "조회 중입니다")
+        fab.setOnClickListener { showSendDialog() }
+    }
 
+    private fun query() {
+        rememberCondition()
 
-            uiScope.launch {
-                withContext(Dispatchers.IO) {
-                    val da = YCalendar(dateAfter.text.toString())
-                    val db = YCalendar(dateBefore.text.toString())
-                    db.addDate(1)
-                    val dc = YCalendar(Date(db.timeInMillis))
-
-                    Log.i("haha", da.timeInMillis.toString())
-                    Log.i("haha", db.timeInMillis.toString())
-                    Log.i("haha", dc.toString())
-
-                    var dbefore = dateBefore.text.toString()
-                    if(dbefore == "") dbefore = "99999999"
+        setEditText(result, "조회 중입니다")
 
 
-                    var smsList = readSMS(this@ScrollingActivity, da, db, fromNumber.text.toString(), includingText.text.toString())
-                    var mmsList = readMMS(this@ScrollingActivity, da, db, fromNumber.text.toString(), includingText.text.toString())
+        uiScope.launch {
+            withContext(Dispatchers.IO) {
+                val da = YCalendar(numberOnly(dateAfter))
+                val db = YCalendar(numberOnly(dateBefore))
+                db.addDate(1)
+                val dc = YCalendar(Date(db.timeInMillis))
 
-                    // sql에서 소팅 완료
-                    /*smsList = sortList(smsList)
+                Log.i("haha", da.timeInMillis.toString())
+                Log.i("haha", db.timeInMillis.toString())
+                Log.i("haha", dc.toString())
+
+                var dbefore = numberOnly(dateBefore)
+                if (dbefore == "") dbefore = "99999999"
+
+
+                var smsList = readSMS(this@ScrollingActivity, da, db, numberOnly(fromNumber), includingText.text.toString())
+                var mmsList = readMMS(this@ScrollingActivity, da, db, numberOnly(fromNumber), includingText.text.toString())
+
+                // sql에서 소팅 완료
+                /*smsList = sortList(smsList)
                     mmsList = sortList(mmsList)*/
 
 
-                    var s = "보낼 내용을 검토하십시오\n\n화살표(-->)를 삭제하면 발송되지 않습니다\n\nSMS는 자동 발송되며\nMMS는 내용 확인 후 발송합니다\n\n\n[SMS 수신 내역]\n\n\n"
-                    for (x in smsList) {
-                        s += "${x}\n\n\n"
-                    }
+                var s = "보낼 내용을 검토하십시오\n\n화살표(-->)를 삭제하면 발송되지 않습니다\n\nSMS는 자동 발송되며\nMMS는 내용 확인 후 발송합니다\n\n\n[SMS 수신 내역]\n\n\n"
+                for (x in smsList) {
+                    s += "${x}\n\n\n"
+                }
 
-                    s += "\n\n\n[MMS 수신 내역]\n\n\n"
-                    for (x in mmsList) {
-                        s += "${x}\n\n\n"
-                    }
+                s += "\n\n\n[MMS 수신 내역]\n\n\n"
+                for (x in mmsList) {
+                    s += "${x}\n\n\n"
+                }
 
-                    withContext(Dispatchers.Main){
-                        setEditText(result, s)
-                    }
+                withContext(Dispatchers.Main) {
+                    setEditText(result, s)
                 }
             }
         }
+    }
 
+    private fun showSendDialog() {
+        rememberCondition()
+
+        AlertDialog.Builder(this).run {
+            setTitle("문자를 보낼까요?")
+            setMessage("한번에 많은 문자가 보내지니 신중히 살펴보십시오~")
+
+            setPositiveButton(
+                "보내기"
+            ) { _, _ ->
+                send()
+            }
+
+            setNegativeButton(
+                "취소"
+            ) { _, _ ->
+            }
+
+            show()
+        }
+        //Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG).setAction("Action", null).show()
+    }
+
+    private fun showDatePicker(ed: EditText?) {
+        if (ed == null) return
+
+        val c = YCalendar(numberOnly(ed))
+
+        DatePickerDialog(
+            this,
+            DatePickerDialog.OnDateSetListener { view, year, month, dayOfMonth ->
+                val m = "0${month+1}".takeLast(2)
+                val d = "0${dayOfMonth}".takeLast(2)
+                setEditText(ed, "$year $m $d")
+            },
+            c.get(Calendar.YEAR),
+            c.get(Calendar.MONTH),
+            c.get(Calendar.DAY_OF_MONTH)
+        ).show()
     }
 
     override fun onDestroy() {
@@ -169,7 +198,7 @@ class ScrollingActivity : AppCompatActivity() {
 
                 println("${n++} SMS : $y")
 
-                sendSMS(toNumber.text.toString(), y)
+                sendSMS(numberOnly(toNumber), y)
 
             } else if (x.startsWith("--> MMS ")) {
                 val y = x.replace("--> MMS ", "")
@@ -181,6 +210,12 @@ class ScrollingActivity : AppCompatActivity() {
         }
 
         sendMMS()
+    }
+
+    fun numberOnly(ed: EditText): String {
+        val rtn = ed.text.toString().replace("""[^0-9]""".toRegex(), "")
+        Log.i("haha", "번호만 추출 : $rtn")
+        return rtn
     }
 
     private fun sortList(list: MutableList<String>): MutableList<String> {

@@ -24,13 +24,15 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="날짜 시작 : " />
+                android:text="날짜 시작"
+                android:layout_marginEnd="15dp"/>
 
             <EditText
                 android:id="@+id/dateAfter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:hint="yyyyMMdd 이후만 조회"/>
+                android:hint="yyyy MM dd"
+                android:inputType="text"/>
 
         </LinearLayout>
 
@@ -42,13 +44,15 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="날짜 종료 : " />
+                android:text="날짜 종료"
+                android:layout_marginEnd="15dp"/>
 
             <EditText
                 android:id="@+id/dateBefore"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:hint="yyyyMMdd 이전만 조회"/>
+                android:hint="yyyy MM dd"
+                android:inputType="text"/>
 
         </LinearLayout>
 
@@ -60,13 +64,16 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="번호 조건 : " />
+                android:text="포함 번호"
+                android:layout_marginEnd="15dp"
+                />
 
             <EditText
                 android:id="@+id/fromNumber"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:hint="번호 입력"/>
+                android:hint="번호 일부 입력"
+                android:inputType="text"/>
 
         </LinearLayout>
 
@@ -78,13 +85,15 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="내용 조건 : " />
+                android:text="포함 내용"
+                android:layout_marginEnd="15dp"/>
 
             <EditText
                 android:id="@+id/includingText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:hint="내용 일부분 입력"/>
+                android:hint="내용 일부 입력"
+                android:inputType="text"/>
 
         </LinearLayout>
 
@@ -96,13 +105,15 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="누구에게 보낼까요?" />
+                android:text="누구에게 보낼까요?"
+                android:layout_marginEnd="15dp"/>
 
             <EditText
                 android:id="@+id/toNumber"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:hint="전달 받을 전화 번호 입력"/>
+                android:hint="000 0000 0000"
+                android:inputType="text"/>
 
         </LinearLayout>
 
@@ -116,7 +127,7 @@
             android:layout_marginBottom="25dp"
             android:text="받은 문자 조회"
             android:textAppearance="@style/TextAppearance.AppCompat.Large"
-            android:textColor="@color/colorPrimaryDark" />
+            android:textColor="#ffffff" />
 
         <EditText
             android:id="@+id/result"
