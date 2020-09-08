@@ -60,7 +60,10 @@ class ScrollingActivity : AppCompatActivity() {
         setDefaultValue()
 
 
+
         fab.setOnClickListener {
+            rememberCondition()
+
             AlertDialog.Builder(this).run {
                 setTitle("문자를 보낼까요?")
                 setMessage("한번에 많은 문자가 보내지니 신중히 살펴보십시오~")
@@ -83,20 +86,32 @@ class ScrollingActivity : AppCompatActivity() {
 
 
         btnQuery.setOnClickListener {
+            rememberCondition()
+
             setEditText(result, "조회 중입니다")
 
 
             uiScope.launch {
                 withContext(Dispatchers.IO) {
+                    val da = YCalendar(dateAfter.text.toString())
+                    val db = YCalendar(dateBefore.text.toString())
+                    db.addDate(1)
+                    val dc = YCalendar(Date(db.timeInMillis))
+
+                    Log.i("haha", da.timeInMillis.toString())
+                    Log.i("haha", db.timeInMillis.toString())
+                    Log.i("haha", dc.toString())
+
                     var dbefore = dateBefore.text.toString()
                     if(dbefore == "") dbefore = "99999999"
 
 
-                    var smsList = readSMS(this@ScrollingActivity, dateAfter.text.toString(), dbefore, fromNumber.text.toString(), includingText.text.toString())
-                    var mmsList = readMMS(this@ScrollingActivity, dateAfter.text.toString(), dbefore, fromNumber.text.toString(), includingText.text.toString())
+                    var smsList = readSMS(this@ScrollingActivity, da, db, fromNumber.text.toString(), includingText.text.toString())
+                    var mmsList = readMMS(this@ScrollingActivity, da, db, fromNumber.text.toString(), includingText.text.toString())
 
-                    smsList = sortList(smsList)
-                    mmsList = sortList(mmsList)
+                    // sql에서 소팅 완료
+                    /*smsList = sortList(smsList)
+                    mmsList = sortList(mmsList)*/
 
 
                     var s = "보낼 내용을 검토하십시오\n\n화살표(-->)를 삭제하면 발송되지 않습니다\n\nSMS는 자동 발송되며\nMMS는 내용 확인 후 발송합니다\n\n\n[SMS 수신 내역]\n\n\n"
@@ -195,31 +210,30 @@ class ScrollingActivity : AppCompatActivity() {
     }
 
 
-    private fun readSMS(context: Context, dateAfter: String, dateBefore: String, num: String, inct: String): MutableList<String> {
+    private fun readSMS(context: Context, dateAfter: YCalendar, dateBefore: YCalendar, num: String, inct: String): MutableList<String> {
         val rtn = ArrayList<String>()
 
 
         val uri = Telephony.Sms.Inbox.CONTENT_URI  // Uri.parse("content://sms/inbox")
 
-        val cursor = context.contentResolver.query(uri, null, null, null, "date desc")
+        val whereClause = "date > ? and date < ? and INSTR(address, ?) > 0 and INSTR(body, ?) > 0"
+        val whereArgs = arrayOf("${dateAfter.timeInMillis}", "${dateBefore.timeInMillis}", num, inct)
+
+        val cursor = context.contentResolver.query(uri, arrayOf("*"), whereClause, whereArgs, "date asc")
 
         if (cursor != null && cursor.moveToFirst()) {
             do {
                 viewModelJob.ensureActive()
 
-                val smsDate = cursor.getString(cursor.getColumnIndexOrThrow("date"))
+                val smsDate = cursor.getLong(cursor.getColumnIndexOrThrow("date"))
                 val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
                 val body = cursor.getString(cursor.getColumnIndexOrThrow("body")).replace("""\s""".toRegex(), " ")
 
-                Log.i("lala", "$smsDate;   $number;   $body")
+                Log.i("haha", "$smsDate;   $number;   $body")
 
-                val yc = YCalendar(Date(smsDate.toLong()))
-                if (yc.getYYYYMMDD() < dateAfter) break
+                val yc = YCalendar(Date(smsDate))
 
-                
-                if (yc.getYYYYMMDD() <= dateBefore && number.indexOf(num) >= 0 && body.indexOf(inct) >= 0) {
-                    rtn.add("${yc}   (${number})\n--> SMS ${body}")
-                }
+                rtn.add("${yc}   (${number})\n--> SMS ${body}")
 
 
             } while (cursor.moveToNext())
@@ -233,18 +247,19 @@ class ScrollingActivity : AppCompatActivity() {
 
     // 참조 URL
     // https://www.it-swarm.dev/ko/android/mms-android%EC%9D%98-%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%A5%BC-%EC%9D%BD%EB%8A%94-%EB%B0%A9%EB%B2%95/969694767/
-    private fun readMMS(context: Context, dateAfter: String, dateBefore: String, num: String, inct: String): MutableList<String> {
+    private fun readMMS(context: Context, dateAfter: YCalendar, dateBefore: YCalendar, num: String, inct: String): MutableList<String> {
         val rtn = ArrayList<String>()
 
 
         val uri = Telephony.Mms.Inbox.CONTENT_URI
 
-        val proj = arrayOf("*")
-        val cursor = context.contentResolver.query(uri, proj, null, null, "date desc")
+        val whereClause = "date > ? and date < ? and INSTR(address, ?) > 0"
+        val whereArgs = arrayOf("${dateAfter.timeInMillis/1000}", "${dateBefore.timeInMillis/1000}", num)
 
-        if (cursor != null) {
-            cursor.moveToFirst()
+        val cursor = context.contentResolver.query(uri, arrayOf("*"), whereClause, whereArgs, "date asc")
 
+
+        if (cursor != null && cursor.moveToFirst()) {
             do {
                 viewModelJob.ensureActive()
 
@@ -260,17 +275,15 @@ class ScrollingActivity : AppCompatActivity() {
                 // kt_tm_send_type, line_address, notification]
 
                 val id = cursor.getString(cursor.getColumnIndexOrThrow("_id"))
-                val date = cursor.getString(cursor.getColumnIndexOrThrow("date"))
+                val date = cursor.getLong(cursor.getColumnIndexOrThrow("date"))
                 val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
                 val body = getMMSBody(id).replace("""\s""".toRegex(), " ")
 
-                Log.i("lala", "$date;   $number;   $body")
+                Log.i("haha", "$date;   $number;   $body")
 
-                val yc = YCalendar(Date("${date}000".toLong()))
-                if (yc.getYYYYMMDD() < dateAfter) break
+                val yc = YCalendar(Date(date * 1000))
 
-
-                if (yc.getYYYYMMDD() <= dateBefore && number.indexOf(num) >= 0 && body.indexOf(inct) >= 0) {
+                if (body.indexOf(inct) >= 0) {
                     rtn.add("${yc}   (${number})\n--> MMS ${body}")
                 }
 
