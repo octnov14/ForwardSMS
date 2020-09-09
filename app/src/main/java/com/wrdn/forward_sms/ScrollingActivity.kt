@@ -1,6 +1,7 @@
 package com.wrdn.forward_sms
 
 import android.Manifest
+import android.animation.ObjectAnimator
 import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
@@ -10,6 +11,7 @@ import android.os.Bundle
 import android.provider.Telephony
 import android.telephony.SmsManager
 import android.util.Log
+import android.view.View
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
@@ -71,13 +73,15 @@ class ScrollingActivity : AppCompatActivity() {
         btnQuery.setOnClickListener { query() }
 
         fab.setOnClickListener { showSendDialog() }
+
+        toNumber.setOnFocusChangeListener { _, _ -> reformatToNumber() }
     }
 
     override fun onStart() {
         super.onStart()
 
         val da = YCalendar(numberOnly(dateAfter))
-        if(da.getYYYYMMDD() == YCalendar.displayYYYYMMDD()) {
+        if (da.getYYYYMMDD() == YCalendar.displayYYYYMMDD()) {
             query()
         }
     }
@@ -100,23 +104,16 @@ class ScrollingActivity : AppCompatActivity() {
                 Log.i("haha", db.timeInMillis.toString())
                 Log.i("haha", dc.toString())
 
-                var dbefore = numberOnly(dateBefore)
-                if (dbefore == "") dbefore = "99999999"
-
 
                 var smsList = readSMS(this@ScrollingActivity, da, db, numberOnly(fromNumber), includingText.text.toString())
-                var mmsList = readMMS(this@ScrollingActivity, da, db, numberOnly(fromNumber), includingText.text.toString())
+                val mmsList = readMMS(this@ScrollingActivity, da, db, numberOnly(fromNumber), includingText.text.toString())
 
                 smsList.addAll(mmsList)
-                smsList = sortList(smsList)
+                smsList = smsList.sortedWith(Comparator<String> { o1, o2 -> if (o1 > o2) -1 else 1 }).toMutableList()
 
-
-//                val regex = """\n@(SMS|MMS)@""".toRegex()
-//
-//                val result : String = regex.replace("abcdefg abcdefg", "!!!")
 
                 var s = ""
-                var i=1
+                var i = 1
                 var y: String
                 for (x in smsList) {
                     y = x.replace("\nSMS", "\n${i}. SMS")
@@ -127,12 +124,90 @@ class ScrollingActivity : AppCompatActivity() {
                     i++
                 }
 
-                s += "\n\n\n\n\n번호의 역순으로 문자를 발송하고\n\n번호를 삭제하면 발송되지 않습니다\n\n\nSMS는 자동 발송되며\n\nMMS는 내용 확인 후 발송합니다"
+                s += "\n\n\n\n\n일찍 받은 문자를 먼저 발송합니다\n\n번호를 삭제하면 발송되지 않습니다\n\n\nSMS는 자동 발송되며\n\nMMS는 내용 확인 후 발송합니다"
 
                 withContext(Dispatchers.Main) {
                     setEditText(result, s)
+
+                    ObjectAnimator.ofInt(scrollView, "scrollY",  findDistanceToScroll(result)).setDuration(700).start()
+                    //scrollView.requestChildFocus(condition_container, result)
                 }
+
             }
+        }
+    }
+
+    private fun findDistanceToScroll(view: View): Int {
+        var distance = view.top
+        var viewParent = view.parent
+        //traverses 10 times
+        for (i in 0..9) {
+            if ((viewParent as View).id == R.id.scrollView) {
+                return distance
+            }
+            distance += (viewParent as View).top
+            viewParent = viewParent.getParent()
+        }
+        return 0
+    }
+
+    private fun send() {
+        var list = result.text.toString().split("\n").toMutableList()
+
+        val resms = """\d+[.] SMS """.toRegex()
+        val reall = """\d+[.] (SMS|MMS) """.toRegex()
+
+        list.removeAll { s -> reall.find(s) == null }
+
+        val renum = """\d+""".toRegex()
+        list = list.sortedWith(Comparator<String> { o1, o2 ->
+            val s1 = resms.find(o1) != null
+            val s2 = resms.find(o2) != null
+
+            if(s1 && !s2) return@Comparator -1
+            if(!s1 && s2) return@Comparator 1
+
+            var v1 = renum.find(o1)?.value?.toInt()
+            var v2 = renum.find(o2)?.value?.toInt()
+
+            if(v1==null) v1 = 0
+            if(v2==null) v2 = 0
+
+            if(v1 > v2) -1 else 1
+        }).toMutableList()
+
+
+        val tonum = numberOnly(toNumber)
+        for (x in list) {
+            Log.i("haha", x)
+
+            var y = reall.replace(x, "")
+            y = y.replace("[Web발신] ", "")
+
+
+            if(resms.find(x) != null) {
+                sendSMS(tonum, y)
+
+            } else {
+                mmsQueue.add(y)
+            }
+        }
+
+        sendMMS()
+    }
+
+    private fun sendSMS(phoneNo: String, msg_: String) {
+        try {
+            var msg = msg_
+            if (msg.length > 70) msg = msg.substring(0, 70)
+
+            val smsManager: SmsManager = SmsManager.getDefault()
+            smsManager.sendTextMessage(phoneNo, null, msg, null, null)
+            Toast.makeText(applicationContext, "전송 완료!", Toast.LENGTH_LONG).show()
+
+        } catch (e: Exception) {
+            Toast.makeText(applicationContext, "전송 실패", Toast.LENGTH_LONG).show()
+            e.printStackTrace()
         }
     }
 
@@ -167,7 +242,7 @@ class ScrollingActivity : AppCompatActivity() {
         DatePickerDialog(
             this,
             DatePickerDialog.OnDateSetListener { view, year, month, dayOfMonth ->
-                val m = "0${month+1}".takeLast(2)
+                val m = "0${month + 1}".takeLast(2)
                 val d = "0${dayOfMonth}".takeLast(2)
                 setEditText(ed, "$year $m $d")
             },
@@ -187,6 +262,8 @@ class ScrollingActivity : AppCompatActivity() {
 
 
     private fun rememberCondition() {
+        reformatToNumber()
+
         val pref = getSharedPreferences("Config", Context.MODE_PRIVATE)
 
         pref.edit().let { conf ->
@@ -201,48 +278,23 @@ class ScrollingActivity : AppCompatActivity() {
 
     }
 
-    private fun send() {
-        //sendSMS("01023573773", "한글도 잘 되겠지? abc 123")
+    private fun reformatToNumber() {
+        val re = """(^02.{0}|^01.{1}|^\d{3})?([0-9]+)([0-9]{4})""".toRegex()
 
-        val arr = result.text.toString().split("\n")
-
-        var n = 1
-        for (x in arr) {
-            if (x.startsWith("--> SMS ")) {
-                val y = x.replace("--> SMS ", "")
-
-                println("${n++} SMS : $y")
-
-                sendSMS(numberOnly(toNumber), y)
-
-            } else if (x.startsWith("--> MMS ")) {
-                val y = x.replace("--> MMS ", "")
-
-                println("${n++} MMS : $y")
-
-                mmsQueue.add(y)
+        re.replace(numberOnly(toNumber)) { match ->
+            Log.i("haha", match.groupValues.toString())
+            val vv = match.groupValues
+            if (vv.size > 3) {
+                setEditText(toNumber, "${vv[1]} ${vv[2]} ${vv[3]}")
             }
+            ""
         }
-
-        sendMMS()
     }
 
     fun numberOnly(ed: EditText): String {
         val rtn = ed.text.toString().replace("""[^0-9]""".toRegex(), "")
         Log.i("haha", "번호만 추출 : $rtn")
         return rtn
-    }
-
-    private fun sortList(list: MutableList<String>): MutableList<String> {
-        val com = Comparator { o1: String, o2: String ->
-            return@Comparator if (o1 > o2) {
-                -1
-            } else {
-                1
-            }
-        }
-
-        return list.sortedWith(com).toMutableList()
     }
 
     private fun setEditText(ed: EditText, s: String) {
@@ -304,7 +356,7 @@ class ScrollingActivity : AppCompatActivity() {
         val uri = Telephony.Mms.Inbox.CONTENT_URI
 
         val whereClause = "date > ? and date < ? and INSTR(address, ?) > 0"
-        val whereArgs = arrayOf("${dateAfter.timeInMillis/1000}", "${dateBefore.timeInMillis/1000}", num)
+        val whereArgs = arrayOf("${dateAfter.timeInMillis / 1000}", "${dateBefore.timeInMillis / 1000}", num)
 
         val cursor = context.contentResolver.query(uri, arrayOf("*"), whereClause, whereArgs, "date asc")
 
@@ -344,23 +396,6 @@ class ScrollingActivity : AppCompatActivity() {
         }
 
         return rtn
-    }
-
-    private fun sendSMS(phoneNo: String, sms: String) {
-        try {
-            var msg = sms.replace("[Web발신] ", "")
-            if (msg.length > 70) msg = msg.substring(0, 70)
-
-            println("${msg.length} : $msg")
-
-            val smsManager: SmsManager = SmsManager.getDefault()
-            smsManager.sendTextMessage(phoneNo, null, msg, null, null)
-            Toast.makeText(applicationContext, "전송 완료!", Toast.LENGTH_LONG).show()
-
-        } catch (e: Exception) {
-            Toast.makeText(applicationContext, "전송 실패", Toast.LENGTH_LONG).show()
-            e.printStackTrace()
-        }
     }
 
     private fun sendMMS() {
