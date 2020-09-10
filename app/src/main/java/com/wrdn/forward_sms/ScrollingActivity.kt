@@ -6,10 +6,14 @@ import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Telephony
 import android.telephony.SmsManager
+import android.text.SpannableString
+import android.text.style.StyleSpan
+import android.text.style.UnderlineSpan
 import android.util.Log
 import android.view.View
 import android.widget.EditText
@@ -112,25 +116,35 @@ class ScrollingActivity : AppCompatActivity() {
                 smsList = smsList.sortedWith(Comparator<String> { o1, o2 -> if (o1 > o2) -1 else 1 }).toMutableList()
 
 
-                var s = ""
+                var s = "━━━━━━━━━━━━━━━━━━━\n\n"
                 var i = 1
                 var y: String
                 for (x in smsList) {
                     y = x.replace("\nSMS", "\n${i}. SMS")
                     y = y.replace("\nMMS", "\n${i}. MMS")
 
-                    s += "${y}\n\n\n"
+                    s += "${y}\n\n━━━━━━━━━━━━━━━━━━━\n\n"
 
                     i++
                 }
 
-                s += "\n\n\n\n\n일찍 받은 문자를 먼저 발송합니다\n\n번호를 삭제하면 발송되지 않습니다\n\n\nSMS는 자동 발송되며\n\nMMS는 내용 확인 후 발송합니다"
+                s += "일찍 받은 문자를 먼저 발송합니다\n순번을 삭제하면 발송되지 않습니다\n\nSMS는 자동 발송되며\nMMS는 내용 확인 후 발송합니다\n"
+
 
                 withContext(Dispatchers.Main) {
+                    /* 글자에 스타일을 주는 방법
+                    val spanString = SpannableString(s)
+                    spanString.setSpan(StyleSpan(Typeface.BOLD), 0, 20, 0)
+                    result.setText(spanString, TextView.BufferType.EDITABLE)*/
+
+
                     setEditText(result, s)
 
-                    ObjectAnimator.ofInt(scrollView, "scrollY",  findDistanceToScroll(result)).setDuration(700).start()
+                    ObjectAnimator.ofInt(scrollView, "scrollY",  findDistanceToScroll(result)).setDuration(1000).start()
                     //scrollView.requestChildFocus(condition_container, result)
+
+
+
                 }
 
             }
@@ -152,13 +166,26 @@ class ScrollingActivity : AppCompatActivity() {
     }
 
     private fun send() {
-        var list = result.text.toString().split("\n").toMutableList()
 
+        /* \n 으로 파싱하는 방법
+        var list = result.text.toString().split("\n").toMutableList()
         val resms = """\d+[.] SMS """.toRegex()
         val reall = """\d+[.] (SMS|MMS) """.toRegex()
 
-        list.removeAll { s -> reall.find(s) == null }
+        list.removeAll { s -> reall.find(s) == null }*/
 
+
+        // regex로 파싱하는 방법
+        var list = mutableListOf<String>()
+        val regex = Regex("""(\d+[.] (SMS|MMS) .*?)\n\n━━━━━━━━━━━━━━━━━━━""", RegexOption.DOT_MATCHES_ALL)
+        val matches = regex.findAll(result.text.toString())
+        matches.forEach {
+            list.add(it.groupValues[1])
+        }
+
+
+        val resms = """\d+[.] SMS """.toRegex()
+        val reall = """\d+[.] (SMS|MMS) """.toRegex()
         val renum = """\d+""".toRegex()
         list = list.sortedWith(Comparator<String> { o1, o2 ->
             val s1 = resms.find(o1) != null
@@ -177,12 +204,13 @@ class ScrollingActivity : AppCompatActivity() {
         }).toMutableList()
 
 
+
         val tonum = numberOnly(toNumber)
-        for (x in list) {
+        list.forEach { x ->
             Log.i("haha", x)
 
             var y = reall.replace(x, "")
-            y = y.replace("[Web발신] ", "")
+            y = y.replace("[Web발신]", "").trim()
 
 
             if(resms.find(x) != null) {
@@ -329,7 +357,7 @@ class ScrollingActivity : AppCompatActivity() {
 
                 val smsDate = cursor.getLong(cursor.getColumnIndexOrThrow("date"))
                 val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
-                val body = cursor.getString(cursor.getColumnIndexOrThrow("body")).replace("""\s""".toRegex(), " ")
+                val body = cursor.getString(cursor.getColumnIndexOrThrow("body"))//.replace("""\s""".toRegex(), " ")
 
                 Log.i("haha", "$smsDate;   $number;   $body")
 
@@ -379,7 +407,7 @@ class ScrollingActivity : AppCompatActivity() {
                 val id = cursor.getString(cursor.getColumnIndexOrThrow("_id"))
                 val date = cursor.getLong(cursor.getColumnIndexOrThrow("date"))
                 val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
-                val body = getMMSBody(id).replace("""\s""".toRegex(), " ")
+                val body = getMMSBody(id)//.replace("""\s""".toRegex(), " ")
 
                 Log.i("haha", "$date;   $number;   $body")
 
@@ -449,7 +477,7 @@ class ScrollingActivity : AppCompatActivity() {
             }
         }
 
-        return body.replace("""\s""".toRegex(), " ")
+        return body//.replace("""\s""".toRegex(), " ")
     }
 
     private fun getMmsText(id: String): String {
