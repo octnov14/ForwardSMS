@@ -6,14 +6,11 @@ import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
+import android.provider.ContactsContract
 import android.provider.Telephony
 import android.telephony.SmsManager
-import android.text.SpannableString
-import android.text.style.StyleSpan
-import android.text.style.UnderlineSpan
 import android.util.Log
 import android.view.View
 import android.widget.EditText
@@ -45,6 +42,7 @@ class ScrollingActivity : AppCompatActivity() {
     private val requiredPermissions = arrayOf(
         Manifest.permission.READ_SMS
         , Manifest.permission.SEND_SMS
+        , Manifest.permission.READ_CONTACTS
     )
 
 
@@ -75,10 +73,10 @@ class ScrollingActivity : AppCompatActivity() {
 
 
         btnQuery.setOnClickListener { query() }
-
         fab.setOnClickListener { showSendDialog() }
-
-        toNumber.setOnFocusChangeListener { _, _ -> reformatToNumber() }
+        toNumber.setOnFocusChangeListener { _, _ ->
+            reformatToNumber()
+        }
     }
 
     override fun onStart() {
@@ -307,16 +305,29 @@ class ScrollingActivity : AppCompatActivity() {
     }
 
     private fun reformatToNumber() {
-        val re = """(^02.{0}|^01.{1}|^\d{3})?([0-9]+)([0-9]{4})""".toRegex()
+        setEditText(toNumber, reformatNumber(numberOnly(toNumber), "-"))
+    }
 
-        re.replace(numberOnly(toNumber)) { match ->
-            Log.i("haha", match.groupValues.toString())
-            val vv = match.groupValues
-            if (vv.size > 3) {
-                setEditText(toNumber, "${vv[1]} ${vv[2]} ${vv[3]}")
+    private fun reformatNumber(s: String, deli: String): String {
+        return when (s.length) {
+            11 ->  { //  010 3333 5555
+                "${s.substring(0,3)}${deli}${s.substring(3,7)}${deli}${s.substring(7)}"
             }
-            ""
+
+            10 -> { // 010 333 3333
+                "${s.substring(0,3)}${deli}${s.substring(3,6)}${deli}${s.substring(6)}"
+            }
+
+            8 -> { // 1500 0000
+                "${s.substring(0,4)}${deli}${s.substring(4)}"
+            }
+
+            9 -> { // 02 333 3333
+                "${s.substring(0,2)}${deli}${s.substring(2,5)}${deli}${s.substring(5)}"
+            }
+            else -> s
         }
+
     }
 
     fun numberOnly(ed: EditText): String {
@@ -339,6 +350,26 @@ class ScrollingActivity : AppCompatActivity() {
         pref.getString("toNumber", "")?.let { setEditText(toNumber, it) }
     }
 
+    private fun getContact(context: Context, phoneNumber: String): String {
+        var contactName = ""
+
+        try {
+            val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber))
+            println("dkkkkkkkkkkkkkk ${uri}")
+            val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
+
+            val cursor  = context.contentResolver.query(uri, projection, null, null, null)
+
+            if (cursor != null && cursor.moveToFirst()) {
+                contactName = cursor.getString(0)
+                cursor.close()
+            }
+        } catch (e: Exception) {
+        }
+
+        return contactName
+    }
+
 
     private fun readSMS(context: Context, dateAfter: YCalendar, dateBefore: YCalendar, num: String, inct: String): MutableList<String> {
         val rtn = ArrayList<String>()
@@ -356,14 +387,22 @@ class ScrollingActivity : AppCompatActivity() {
                 viewModelJob.ensureActive()
 
                 val smsDate = cursor.getLong(cursor.getColumnIndexOrThrow("date"))
-                val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
+                var number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
                 val body = cursor.getString(cursor.getColumnIndexOrThrow("body"))//.replace("""\s""".toRegex(), " ")
 
                 Log.i("haha", "$smsDate;   $number;   $body")
 
                 val yc = YCalendar(Date(smsDate))
 
-                rtn.add("${yc}   (${number})\nSMS ${body}")
+                number = reformatNumber(number, "-")
+                var name = getContact(context, number)
+                name = if(name == "") {
+                    number
+                } else {
+                    "$name ($number)"
+                }
+
+                rtn.add("${yc}\n${name}\nSMS ${body}")
 
 
             } while (cursor.moveToNext())
@@ -406,7 +445,7 @@ class ScrollingActivity : AppCompatActivity() {
 
                 val id = cursor.getString(cursor.getColumnIndexOrThrow("_id"))
                 val date = cursor.getLong(cursor.getColumnIndexOrThrow("date"))
-                val number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
+                var number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
                 val body = getMMSBody(id)//.replace("""\s""".toRegex(), " ")
 
                 Log.i("haha", "$date;   $number;   $body")
@@ -414,7 +453,15 @@ class ScrollingActivity : AppCompatActivity() {
                 val yc = YCalendar(Date(date * 1000))
 
                 if (body.indexOf(inct) >= 0) {
-                    rtn.add("${yc}   (${number})\nMMS ${body}")
+                    number = reformatNumber(number, "-")
+                    var name = getContact(context, number)
+                    name = if(name == "") {
+                        number
+                    } else {
+                        "$name ($number)"
+                    }
+
+                    rtn.add("${yc}\n${name}\nMMS ${body}")
                 }
 
 

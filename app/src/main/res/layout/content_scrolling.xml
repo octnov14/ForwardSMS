@@ -136,6 +136,8 @@
             android:layout_height="wrap_content"
             android:text="먼저 조회를 하십시오"
             android:textSize="16sp"
+            android:autoLink="web"
+            android:clickable="true"
             android:background="#00000000" />
 
     </LinearLayout>
