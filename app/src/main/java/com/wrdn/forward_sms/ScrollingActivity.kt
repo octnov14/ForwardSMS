@@ -34,6 +34,7 @@ import kotlin.collections.ArrayList
 
 class ScrollingActivity : AppCompatActivity() {
 
+    private val SELECT_PHONE_NUMBER = 10002
     private val SEND_MMS = 10001
     private val multiplePermissionsCode = 100
 
@@ -74,9 +75,17 @@ class ScrollingActivity : AppCompatActivity() {
 
         btnQuery.setOnClickListener { query() }
         fab.setOnClickListener { showSendDialog() }
-        toNumber.setOnFocusChangeListener { _, _ ->
+
+        toNumber.setOnFocusChangeListener { _, hasFocus ->
             reformatToNumber()
+            if(hasFocus) {
+                val i = Intent(Intent.ACTION_PICK)
+                i.type = ContactsContract.CommonDataKinds.Phone.CONTENT_TYPE
+                startActivityForResult(i, SELECT_PHONE_NUMBER)
+            }
         }
+
+        reformatToNumber()
     }
 
     override fun onStart() {
@@ -138,7 +147,7 @@ class ScrollingActivity : AppCompatActivity() {
 
                     setEditText(result, s)
 
-                    ObjectAnimator.ofInt(scrollView, "scrollY",  findDistanceToScroll(result)).setDuration(1000).start()
+                    ObjectAnimator.ofInt(scrollView, "scrollY",  findDistanceToScroll(result)).setDuration(700).start()
                     //scrollView.requestChildFocus(condition_container, result)
 
 
@@ -306,6 +315,7 @@ class ScrollingActivity : AppCompatActivity() {
 
     private fun reformatToNumber() {
         setEditText(toNumber, reformatNumber(numberOnly(toNumber), "-"))
+        txtToNumber.text = getContactName(this, numberOnly(toNumber))
     }
 
     private fun reformatNumber(s: String, deli: String): String {
@@ -350,12 +360,11 @@ class ScrollingActivity : AppCompatActivity() {
         pref.getString("toNumber", "")?.let { setEditText(toNumber, it) }
     }
 
-    private fun getContact(context: Context, phoneNumber: String): String {
+    private fun getContactName(context: Context, phoneNumber: String): String {
         var contactName = ""
 
         try {
             val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber))
-            println("dkkkkkkkkkkkkkk ${uri}")
             val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
 
             val cursor  = context.contentResolver.query(uri, projection, null, null, null)
@@ -395,7 +404,7 @@ class ScrollingActivity : AppCompatActivity() {
                 val yc = YCalendar(Date(smsDate))
 
                 number = reformatNumber(number, "-")
-                var name = getContact(context, number)
+                var name = getContactName(context, number)
                 name = if(name == "") {
                     number
                 } else {
@@ -454,7 +463,7 @@ class ScrollingActivity : AppCompatActivity() {
 
                 if (body.indexOf(inct) >= 0) {
                     number = reformatNumber(number, "-")
-                    var name = getContact(context, number)
+                    var name = getContactName(context, number)
                     name = if(name == "") {
                         number
                     } else {
@@ -599,6 +608,30 @@ class ScrollingActivity : AppCompatActivity() {
         when (requestCode) {
             SEND_MMS -> {
                 sendMMS()
+            }
+
+            SELECT_PHONE_NUMBER -> {
+                if (resultCode != RESULT_OK) return
+                val contactUri = data?.data ?: return
+
+                val projection = arrayOf(
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    ContactsContract.CommonDataKinds.Phone.NUMBER
+                )
+                val cursor = contentResolver.query(contactUri, projection, null, null, null)
+
+                if (cursor != null && cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                    val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                    val name = cursor.getString(nameIndex)
+                    val number = cursor.getString(numberIndex)
+
+                    setEditText(toNumber, number)
+                    txtToNumber.text = name
+                    reformatToNumber()
+                }
+                cursor?.close()
+
             }
         }
     }

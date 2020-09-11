@@ -99,22 +99,50 @@
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical">
 
-            <TextView
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="15dp"
+                    android:text="누구에게 보낼까요?" />
+
+                <EditText
+                    android:id="@+id/toNumber"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:hint="000 0000 0000"
+                    android:inputType="number"
+                    android:layout_marginEnd="15dp" />
+            </LinearLayout>
+
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="15dp"
-                android:text="누구에게 보낼까요?" />
+                android:orientation="horizontal">
 
-            <EditText
-                android:id="@+id/toNumber"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:hint="000 0000 0000"
-                android:inputType="number" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="15dp"
+                    android:text="누구에게 보낼까요?"
+                    android:textColor="#00000000" />
+
+                <TextView
+                    android:id="@+id/txtToNumber"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="16sp"
+                    />
+
+            </LinearLayout>
 
         </LinearLayout>
 
