@@ -6,13 +6,16 @@ import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
 import android.provider.Telephony
 import android.telephony.SmsManager
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
@@ -20,8 +23,12 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.snackbar.Snackbar
 import kotlinx.android.synthetic.main.activity_scrolling.*
 import kotlinx.android.synthetic.main.content_scrolling.*
+import kotlinx.android.synthetic.main.item_msg_list.view.*
 import kotlinx.coroutines.*
 import java.io.BufferedReader
 import java.io.IOException
@@ -47,6 +54,7 @@ class ScrollingActivity : AppCompatActivity() {
     )
 
 
+    val myAdapter = MyAdapter(arrayListOf("\n조회 먼저 하십시오"))
     val mmsQueue: Queue<String> = LinkedList()
 
 
@@ -65,6 +73,13 @@ class ScrollingActivity : AppCompatActivity() {
 
         setDefaultValue()
 
+        rvList.apply {
+            adapter = myAdapter
+            setHasFixedSize(true)
+            layoutManager = LinearLayoutManager(this@ScrollingActivity)
+            isNestedScrollingEnabled = false
+        }
+
 
         dateAfter.setOnFocusChangeListener { v, hasFocus -> if (hasFocus) showDatePicker(v as EditText?) }
         dateAfter.setOnClickListener { showDatePicker(it as EditText?) }
@@ -78,7 +93,7 @@ class ScrollingActivity : AppCompatActivity() {
 
         toNumber.setOnFocusChangeListener { _, hasFocus ->
             reformatToNumber()
-            if(hasFocus) {
+            if (hasFocus) {
                 val i = Intent(Intent.ACTION_PICK)
                 i.type = ContactsContract.CommonDataKinds.Phone.CONTENT_TYPE
                 startActivityForResult(i, SELECT_PHONE_NUMBER)
@@ -97,10 +112,18 @@ class ScrollingActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+
+        rememberCondition()
+
+        viewModelJob.cancel()
+    }
+
     private fun query() {
         rememberCondition()
 
-        setEditText(result, "조회 중입니다")
+        myAdapter.setList(arrayListOf("\n조회 중입니다"))
 
 
         uiScope.launch {
@@ -109,122 +132,224 @@ class ScrollingActivity : AppCompatActivity() {
                 da.setHMS(0, 0, 0)
                 val db = YCalendar(numberOnly(dateBefore))
                 db.addDate(1)
-                val dc = YCalendar(Date(db.timeInMillis))
 
-                Log.i("haha", da.timeInMillis.toString())
-                Log.i("haha", db.timeInMillis.toString())
-                Log.i("haha", dc.toString())
-
-
-                var smsList = readSMS(this@ScrollingActivity, da, db, numberOnly(fromNumber), includingText.text.toString())
+                var msgList = readSMS(this@ScrollingActivity, da, db, numberOnly(fromNumber), includingText.text.toString())
                 val mmsList = readMMS(this@ScrollingActivity, da, db, numberOnly(fromNumber), includingText.text.toString())
 
-                smsList.addAll(mmsList)
-                smsList = smsList.sortedWith(Comparator<String> { o1, o2 -> if (o1 > o2) -1 else 1 }).toMutableList()
-
-
-                var s = "━━━━━━━━━━━━━━━━━━━\n\n"
-                var i = 1
-                var y: String
-                for (x in smsList) {
-                    y = x.replace("\nSMS", "\n${i}. SMS")
-                    y = y.replace("\nMMS", "\n${i}. MMS")
-
-                    s += "${y}\n\n━━━━━━━━━━━━━━━━━━━\n\n"
-
-                    i++
-                }
-
-                s += "일찍 받은 문자를 먼저 발송합니다\n순번을 삭제하면 발송되지 않습니다\n\nSMS는 자동 발송되며\nMMS는 내용 확인 후 발송합니다\n"
+                msgList.addAll(mmsList)
+                msgList = msgList.sortedWith(Comparator { o1, o2 -> if (o1 > o2) -1 else 1 }).toMutableList()
 
 
                 withContext(Dispatchers.Main) {
-                    /* 글자에 스타일을 주는 방법
-                    val spanString = SpannableString(s)
-                    spanString.setSpan(StyleSpan(Typeface.BOLD), 0, 20, 0)
-                    result.setText(spanString, TextView.BufferType.EDITABLE)*/
+                    myAdapter.setList(msgList)
 
-
-                    setEditText(result, s)
-
-                    ObjectAnimator.ofInt(scrollView, "scrollY",  findDistanceToScroll(result)).setDuration(700).start()
+                    ObjectAnimator.ofInt(scrollView, "scrollY", findDistanceToScroll(rvList)).setDuration(300).start()
                     //scrollView.requestChildFocus(condition_container, result)
+                }
+            }
+        }
+    }
+
+    class MyAdapter(private var msgList: MutableList<String>) : RecyclerView.Adapter<MyAdapter.MyViewHolder>() {
+
+        inner class MyViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+
+            init {
+                setEventHandler()
+            }
+
+            fun bind(position: Int) {
+                Log.i("haha", "pos;   $position")
+                val msg = Message.getMessage(msgList[position])
+
+                itemView.txtDateTime.text = msg.date
+                itemView.txtSender.text = msg.sender
+                itemView.txtMsg.text = msg.msg
+
+                setBgColor(msg.date)
+            }
+
+            private fun setBgColor(msg: String) {
+                Log.i("haha", "bg color")
+                if (msg.startsWith("X ")) {
+                    itemView.setBackgroundResource(R.color.deletedMsgColor)
+                } else {
+                    itemView.setBackgroundResource(R.color.defaultMsgColor)
+                }
+            }
+
+            private fun setEventHandler() {
+                itemView.itemContainer.setOnClickListener {
+                    var msg = msgList[adapterPosition]
+
+                    msg = if (msg.startsWith("X ")) msg.substring(2) else "X $msg"
+                    val uimsg = if (msg.startsWith("X ")) "발신 제외" else "발신 포함"
+
+                    msgList[adapterPosition] = msg
+                    notifyDataSetChanged()
+
+                    Snackbar.make(itemView, uimsg, Snackbar.LENGTH_LONG).setAction("Action", null).show()
+                }
+            }
+
+        } // end of MyViewHolder
 
 
 
+        fun setList(list: MutableList<String>) {
+            msgList = list
+            notifyDataSetChanged()
+        }
+
+        fun getList(): MutableList<String> {
+            return msgList
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MyAdapter.MyViewHolder {
+            return MyViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_msg_list, parent, false))
+        }
+
+        override fun onBindViewHolder(holder: MyViewHolder, position: Int) {
+            holder.bind(position)
+        }
+
+        override fun getItemCount() = msgList.size
+    }
+
+    data class Message(
+        var date: String = "",
+        var sender: String = "",
+        var msg: String = ""
+    ) {
+        fun log() {
+            Log.i("haha", "\n\n${date};   ${sender};   ${msg}")
+        }
+
+        companion object {
+            fun getMessage(s: String): Message {
+                val list = (s + "\n\n\n\n\n").split("\n")
+                val msg = list.subList(2, list.size).joinToString("\n")
+
+                return Message(list[0], list[1], msg.trim())
+            }
+        }
+    }
+
+    private fun readSMS(context: Context, dateAfter: YCalendar, dateBefore: YCalendar, num: String, inct: String): MutableList<String> {
+        val rtn = ArrayList<String>()
+
+
+        val uri = Telephony.Sms.Inbox.CONTENT_URI  // Uri.parse("content://sms/inbox")
+
+        val whereClause = "date > ? and date < ? and INSTR(address, ?) > 0 and INSTR(body, ?) > 0"
+        val whereArgs = arrayOf("${dateAfter.timeInMillis}", "${dateBefore.timeInMillis}", num, inct)
+
+        val cursor = context.contentResolver.query(uri, arrayOf("*"), whereClause, whereArgs, "date asc")
+
+        if (cursor != null && cursor.moveToFirst()) {
+            do {
+                viewModelJob.ensureActive()
+
+                val smsDate = cursor.getLong(cursor.getColumnIndexOrThrow("date"))
+                var number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
+                val body = cursor.getString(cursor.getColumnIndexOrThrow("body"))//.replace("""\s""".toRegex(), " ")
+
+                Log.i("haha", "$smsDate;   $number;   $body")
+
+                val yc = YCalendar(Date(smsDate))
+
+                number = reformatNumber(number, "-")
+                var name = getContactName(context, number)
+                name = if (name == "") {
+                    number
+                } else {
+                    "$name ($number)"
                 }
 
-            }
+                rtn.add("${yc}\n${name}\n${body}")
+
+
+            } while (cursor.moveToNext())
         }
+
+        cursor?.close()
+
+        return rtn
     }
 
-    private fun findDistanceToScroll(view: View): Int {
-        var distance = view.top
-        var viewParent = view.parent
-        //traverses 10 times
-        for (i in 0..9) {
-            if ((viewParent as View).id == R.id.scrollView) {
-                return distance
-            }
-            distance += (viewParent as View).top
-            viewParent = viewParent.getParent()
+
+    // 참조 URL
+    // https://www.it-swarm.dev/ko/android/mms-android%EC%9D%98-%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%A5%BC-%EC%9D%BD%EB%8A%94-%EB%B0%A9%EB%B2%95/969694767/
+    private fun readMMS(context: Context, dateAfter: YCalendar, dateBefore: YCalendar, num: String, inct: String): MutableList<String> {
+        val rtn = ArrayList<String>()
+
+
+        val uri = Telephony.Mms.Inbox.CONTENT_URI
+
+        val whereClause = "date > ? and date < ? and INSTR(address, ?) > 0"
+        val whereArgs = arrayOf("${dateAfter.timeInMillis / 1000}", "${dateBefore.timeInMillis / 1000}", num)
+
+        val cursor = context.contentResolver.query(uri, arrayOf("*"), whereClause, whereArgs, "date asc")
+
+
+        if (cursor != null && cursor.moveToFirst()) {
+            do {
+                viewModelJob.ensureActive()
+
+                // mms columns
+                // date 에는 뒤에 000 을 붙여야 한다!!!!!!!!!!
+                // 아이디, 수신번호만 의미있다
+                // ct_t 는 컨텐트 타입이다
+
+                val id = cursor.getString(cursor.getColumnIndexOrThrow("_id"))
+                val date = cursor.getLong(cursor.getColumnIndexOrThrow("date"))
+                var number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
+                val body = getMMSBody(id)//.replace("""\s""".toRegex(), " ")
+
+                Log.i("haha", "$date;   $number;   $body")
+
+                val yc = YCalendar(Date(date * 1000))
+
+                if (body.indexOf(inct) >= 0) {
+                    number = reformatNumber(number, "-")
+                    var name = getContactName(context, number)
+                    name = if (name == "") {
+                        number
+                    } else {
+                        "$name ($number)"
+                    }
+
+                    rtn.add("${yc}\n${name}\n${body}")
+                }
+
+
+            } while (cursor.moveToNext())
+
+            cursor.close()
         }
-        return 0
+
+        return rtn
     }
+
 
     private fun send() {
-
-        /* \n 으로 파싱하는 방법
-        var list = result.text.toString().split("\n").toMutableList()
-        val resms = """\d+[.] SMS """.toRegex()
-        val reall = """\d+[.] (SMS|MMS) """.toRegex()
-
-        list.removeAll { s -> reall.find(s) == null }*/
-
-
-        // regex로 파싱하는 방법
-        var list = mutableListOf<String>()
-        val regex = Regex("""(\d+[.] (SMS|MMS) .*?)\n\n━━━━━━━━━━━━━━━━━━━""", RegexOption.DOT_MATCHES_ALL)
-        val matches = regex.findAll(result.text.toString())
-        matches.forEach {
-            list.add(it.groupValues[1])
-        }
-
-
-        val resms = """\d+[.] SMS """.toRegex()
-        val reall = """\d+[.] (SMS|MMS) """.toRegex()
-        val renum = """\d+""".toRegex()
-        list = list.sortedWith(Comparator<String> { o1, o2 ->
-            val s1 = resms.find(o1) != null
-            val s2 = resms.find(o2) != null
-
-            if(s1 && !s2) return@Comparator -1
-            if(!s1 && s2) return@Comparator 1
-
-            var v1 = renum.find(o1)?.value?.toInt()
-            var v2 = renum.find(o2)?.value?.toInt()
-
-            if(v1==null) v1 = 0
-            if(v2==null) v2 = 0
-
-            if(v1 > v2) -1 else 1
-        }).toMutableList()
-
-
+        var list = myAdapter.getList()
+        list = list.sortedWith(Comparator { o1, o2 -> if (o1 < o2) -1 else 1 }).toMutableList()
 
         val tonum = numberOnly(toNumber)
         list.forEach { x ->
-            Log.i("haha", x)
+            if(x.startsWith("X ")) return@forEach
 
-            var y = reall.replace(x, "")
-            y = y.replace("[Web발신]", "").trim()
+            val msg = Message.getMessage(x)
 
+            msg.msg = msg.msg.replace("[Web발신]", "").trim()
 
-            if(resms.find(x) != null) {
-                sendSMS(tonum, y)
+            msg.log()
 
+            if (msg.msg.length > 70) {
+                mmsQueue.add(msg.msg)
             } else {
-                mmsQueue.add(y)
+                sendSMS(tonum, msg.msg)
             }
         }
 
@@ -238,10 +363,32 @@ class ScrollingActivity : AppCompatActivity() {
 
             val smsManager: SmsManager = SmsManager.getDefault()
             smsManager.sendTextMessage(phoneNo, null, msg, null, null)
-            Toast.makeText(applicationContext, "전송 완료!", Toast.LENGTH_LONG).show()
+            //Toast.makeText(applicationContext, "전송 완료!", Toast.LENGTH_LONG).show()
 
         } catch (e: Exception) {
-            Toast.makeText(applicationContext, "전송 실패", Toast.LENGTH_LONG).show()
+            //Toast.makeText(applicationContext, "전송 실패", Toast.LENGTH_LONG).show()
+            Snackbar.make(btnQuery, "문자 전송에 실패했습니다", Snackbar.LENGTH_LONG).setAction("Action", null).show()
+            e.printStackTrace()
+        }
+    }
+
+    private fun sendMMS() {
+        val msg = mmsQueue.poll() ?: return
+
+        try {
+            val sendIntent = Intent(Intent.ACTION_SEND)
+
+            sendIntent.setClassName("com.android.mms", "com.android.mms.ui.ComposeMessageActivity")
+            sendIntent.putExtra("address", toNumber.text.toString())
+            sendIntent.putExtra("subject", "")
+            sendIntent.putExtra("sms_body", msg)
+
+            //sendIntent.setType("image/*")
+            //sendIntent.putExtra(Intent.EXTRA_STREAM, imgUri)
+
+            startActivityForResult(sendIntent, SEND_MMS)
+
+        } catch (e: Exception) {
             e.printStackTrace()
         }
     }
@@ -276,7 +423,7 @@ class ScrollingActivity : AppCompatActivity() {
 
         DatePickerDialog(
             this,
-            DatePickerDialog.OnDateSetListener { view, year, month, dayOfMonth ->
+            DatePickerDialog.OnDateSetListener { _, year, month, dayOfMonth ->
                 val m = "0${month + 1}".takeLast(2)
                 val d = "0${dayOfMonth}".takeLast(2)
                 setEditText(ed, "$year $m $d")
@@ -285,14 +432,6 @@ class ScrollingActivity : AppCompatActivity() {
             c.get(Calendar.MONTH),
             c.get(Calendar.DAY_OF_MONTH)
         ).show()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-
-        rememberCondition()
-
-        viewModelJob.cancel()
     }
 
 
@@ -320,27 +459,27 @@ class ScrollingActivity : AppCompatActivity() {
 
     private fun reformatNumber(s: String, deli: String): String {
         return when (s.length) {
-            11 ->  { //  010 3333 5555
-                "${s.substring(0,3)}${deli}${s.substring(3,7)}${deli}${s.substring(7)}"
+            11 -> { //  010 3333 5555
+                "${s.substring(0, 3)}${deli}${s.substring(3, 7)}${deli}${s.substring(7)}"
             }
 
             10 -> { // 010 333 3333
-                "${s.substring(0,3)}${deli}${s.substring(3,6)}${deli}${s.substring(6)}"
+                "${s.substring(0, 3)}${deli}${s.substring(3, 6)}${deli}${s.substring(6)}"
             }
 
             8 -> { // 1500 0000
-                "${s.substring(0,4)}${deli}${s.substring(4)}"
+                "${s.substring(0, 4)}${deli}${s.substring(4)}"
             }
 
             9 -> { // 02 333 3333
-                "${s.substring(0,2)}${deli}${s.substring(2,5)}${deli}${s.substring(5)}"
+                "${s.substring(0, 2)}${deli}${s.substring(2, 5)}${deli}${s.substring(5)}"
             }
             else -> s
         }
 
     }
 
-    fun numberOnly(ed: EditText): String {
+    private fun numberOnly(ed: EditText): String {
         val rtn = ed.text.toString().replace("""[^0-9]""".toRegex(), "")
         Log.i("haha", "번호만 추출 : $rtn")
         return rtn
@@ -367,7 +506,7 @@ class ScrollingActivity : AppCompatActivity() {
             val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber))
             val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
 
-            val cursor  = context.contentResolver.query(uri, projection, null, null, null)
+            val cursor = context.contentResolver.query(uri, projection, null, null, null)
 
             if (cursor != null && cursor.moveToFirst()) {
                 contactName = cursor.getString(0)
@@ -377,130 +516,6 @@ class ScrollingActivity : AppCompatActivity() {
         }
 
         return contactName
-    }
-
-
-    private fun readSMS(context: Context, dateAfter: YCalendar, dateBefore: YCalendar, num: String, inct: String): MutableList<String> {
-        val rtn = ArrayList<String>()
-
-
-        val uri = Telephony.Sms.Inbox.CONTENT_URI  // Uri.parse("content://sms/inbox")
-
-        val whereClause = "date > ? and date < ? and INSTR(address, ?) > 0 and INSTR(body, ?) > 0"
-        val whereArgs = arrayOf("${dateAfter.timeInMillis}", "${dateBefore.timeInMillis}", num, inct)
-
-        val cursor = context.contentResolver.query(uri, arrayOf("*"), whereClause, whereArgs, "date asc")
-
-        if (cursor != null && cursor.moveToFirst()) {
-            do {
-                viewModelJob.ensureActive()
-
-                val smsDate = cursor.getLong(cursor.getColumnIndexOrThrow("date"))
-                var number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
-                val body = cursor.getString(cursor.getColumnIndexOrThrow("body"))//.replace("""\s""".toRegex(), " ")
-
-                Log.i("haha", "$smsDate;   $number;   $body")
-
-                val yc = YCalendar(Date(smsDate))
-
-                number = reformatNumber(number, "-")
-                var name = getContactName(context, number)
-                name = if(name == "") {
-                    number
-                } else {
-                    "$name ($number)"
-                }
-
-                rtn.add("${yc}\n${name}\nSMS ${body}")
-
-
-            } while (cursor.moveToNext())
-        }
-
-        cursor?.close()
-
-        return rtn
-    }
-
-
-    // 참조 URL
-    // https://www.it-swarm.dev/ko/android/mms-android%EC%9D%98-%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%A5%BC-%EC%9D%BD%EB%8A%94-%EB%B0%A9%EB%B2%95/969694767/
-    private fun readMMS(context: Context, dateAfter: YCalendar, dateBefore: YCalendar, num: String, inct: String): MutableList<String> {
-        val rtn = ArrayList<String>()
-
-
-        val uri = Telephony.Mms.Inbox.CONTENT_URI
-
-        val whereClause = "date > ? and date < ? and INSTR(address, ?) > 0"
-        val whereArgs = arrayOf("${dateAfter.timeInMillis / 1000}", "${dateBefore.timeInMillis / 1000}", num)
-
-        val cursor = context.contentResolver.query(uri, arrayOf("*"), whereClause, whereArgs, "date asc")
-
-
-        if (cursor != null && cursor.moveToFirst()) {
-            do {
-                viewModelJob.ensureActive()
-
-                // mms columns
-                // date 에는 뒤에 000 을 붙여야 한다!!!!!!!!!!
-                // 아이디, 수신번호만 의미있다
-                // ct_t 는 컨텐트 타입이다
-                // Available columns: [_id, thread_id, date, date_sent, msg_box, read, m_id, sub, sub_cs, ct_t, ct_l, exp,
-                // m_cls, m_type, v, m_size, pri, rr, rpt_a, resp_st, st, tr_id, retr_st, retr_txt, retr_txt_cs,
-                // read_status, ct_cls, resp_txt, d_tm, d_rpt, locked, seen, sub_id, phone_id, creator,
-                // imsi_data, group_id, save_call_type, msg_boxtype, type, address, name, tag, tag_eng,
-                // spam_report, reserve_time, insert_time, sender_num, textlink, text_only, c0_iei,
-                // kt_tm_send_type, line_address, notification]
-
-                val id = cursor.getString(cursor.getColumnIndexOrThrow("_id"))
-                val date = cursor.getLong(cursor.getColumnIndexOrThrow("date"))
-                var number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
-                val body = getMMSBody(id)//.replace("""\s""".toRegex(), " ")
-
-                Log.i("haha", "$date;   $number;   $body")
-
-                val yc = YCalendar(Date(date * 1000))
-
-                if (body.indexOf(inct) >= 0) {
-                    number = reformatNumber(number, "-")
-                    var name = getContactName(context, number)
-                    name = if(name == "") {
-                        number
-                    } else {
-                        "$name ($number)"
-                    }
-
-                    rtn.add("${yc}\n${name}\nMMS ${body}")
-                }
-
-
-            } while (cursor.moveToNext())
-
-            cursor.close()
-        }
-
-        return rtn
-    }
-
-    private fun sendMMS() {
-        val msg = mmsQueue.poll() ?: return
-
-        try {
-            val sendIntent = Intent(Intent.ACTION_SEND)
-
-            sendIntent.setClassName("com.android.mms", "com.android.mms.ui.ComposeMessageActivity");
-            sendIntent.putExtra("address", toNumber.text.toString())
-            sendIntent.putExtra("subject", "")
-            sendIntent.putExtra("sms_body", msg)
-
-            //sendIntent.setType("image/*")
-            //sendIntent.putExtra(Intent.EXTRA_STREAM, imgUri)
-
-            startActivityForResult(sendIntent, SEND_MMS)
-
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 
 
@@ -520,11 +535,11 @@ class ScrollingActivity : AppCompatActivity() {
 
                     if ("text/plain" == type) {
                         val data: String? = cursor.getString(cursor.getColumnIndex("_data"))
-                        if (data != null) {
+                        body = if (data != null) {
                             // implementation of this method below
-                            body = getMmsText(partId)
+                            getMmsText(partId)
                         } else {
-                            body = cursor.getString(cursor.getColumnIndex("text"))
+                            cursor.getString(cursor.getColumnIndex("text"))
                         }
                     }
                 } while (cursor.moveToNext())
@@ -564,9 +579,23 @@ class ScrollingActivity : AppCompatActivity() {
     }
 
 
+    private fun findDistanceToScroll(view: View): Int {
+        var distance = view.top
+        var viewParent = view.parent
+        //traverses 10 times
+        for (i in 0..9) {
+            if ((viewParent as View).id == R.id.scrollView) {
+                return distance
+            }
+            distance += (viewParent as View).top
+            viewParent = viewParent.getParent()
+        }
+        return 0
+    }
+
     private fun checkPermissions() {
         //거절되었거나 아직 수락하지 않은 권한(퍼미션)을 저장할 문자열 배열 리스트
-        var rejectedPermissionList = ArrayList<String>()
+        val rejectedPermissionList = ArrayList<String>()
 
         //필요한 퍼미션들을 하나씩 끄집어내서 현재 권한을 받았는지 체크
         for (permission in requiredPermissions) {

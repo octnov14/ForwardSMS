@@ -118,9 +118,9 @@
                     android:id="@+id/toNumber"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginEnd="15dp"
                     android:hint="000 0000 0000"
-                    android:inputType="number"
-                    android:layout_marginEnd="15dp" />
+                    android:inputType="number" />
             </LinearLayout>
 
             <LinearLayout
@@ -139,8 +139,7 @@
                     android:id="@+id/txtToNumber"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textSize="16sp"
-                    />
+                    android:textSize="16sp" />
 
             </LinearLayout>
 
@@ -149,24 +148,24 @@
 
         <Button
             android:id="@+id/btnQuery"
-            style="@android:style/Widget.Material.Button.Colored"
             android:layout_width="match_parent"
             android:layout_height="79dp"
             android:layout_marginTop="25dp"
             android:layout_marginBottom="25dp"
+            android:background="@color/colorAccent"
             android:text="받은 문자 조회"
-            android:textAppearance="@style/TextAppearance.AppCompat.Large"
-            android:textColor="#ffffff" />
+            android:textColor="#ffffff"
+            android:textSize="22sp" />
 
-        <EditText
-            android:id="@+id/result"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="먼저 조회를 하십시오"
-            android:textSize="16sp"
-            android:autoLink="web"
-            android:clickable="true"
-            android:background="#00000000" />
+        <!--android:textAppearance="@style/TextAppearance.AppCompat.Large"-->
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvList"
+            android:scrollbars="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginBottom="50dp"
+            />
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>
