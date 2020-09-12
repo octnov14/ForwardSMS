@@ -159,7 +159,6 @@ class ScrollingActivity : AppCompatActivity() {
             }
 
             fun bind(position: Int) {
-                Log.i("haha", "pos;   $position")
                 val msg = Message.getMessage(msgList[position])
 
                 itemView.txtDateTime.text = msg.date
@@ -170,7 +169,6 @@ class ScrollingActivity : AppCompatActivity() {
             }
 
             private fun setBgColor(msg: String) {
-                Log.i("haha", "bg color")
                 if (msg.startsWith("X ")) {
                     itemView.setBackgroundResource(R.color.deletedMsgColor)
                 } else {
@@ -254,8 +252,6 @@ class ScrollingActivity : AppCompatActivity() {
                 var number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
                 val body = cursor.getString(cursor.getColumnIndexOrThrow("body"))//.replace("""\s""".toRegex(), " ")
 
-                Log.i("haha", "$smsDate;   $number;   $body")
-
                 val yc = YCalendar(Date(smsDate))
 
                 number = reformatNumber(number, "-")
@@ -305,8 +301,6 @@ class ScrollingActivity : AppCompatActivity() {
                 val date = cursor.getLong(cursor.getColumnIndexOrThrow("date"))
                 var number = cursor.getString(cursor.getColumnIndexOrThrow("address"))
                 val body = getMMSBody(id)//.replace("""\s""".toRegex(), " ")
-
-                Log.i("haha", "$date;   $number;   $body")
 
                 val yc = YCalendar(Date(date * 1000))
 
@@ -481,7 +475,6 @@ class ScrollingActivity : AppCompatActivity() {
 
     private fun numberOnly(ed: EditText): String {
         val rtn = ed.text.toString().replace("""[^0-9]""".toRegex(), "")
-        Log.i("haha", "번호만 추출 : $rtn")
         return rtn
     }
 
@@ -622,8 +615,6 @@ class ScrollingActivity : AppCompatActivity() {
                     for ((i, permission) in permissions.withIndex()) {
                         if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
                             //권한 획득 실패
-                            Log.i("TAG", "The user has denied to $permission")
-                            Log.i("TAG", "I can't work for you anymore then. ByeBye!")
                         }
                     }
                 }
