@@ -177,17 +177,25 @@ class ScrollingActivity : AppCompatActivity() {
             }
 
             private fun setEventHandler() {
-                itemView.itemContainer.setOnClickListener {
-                    var msg = msgList[adapterPosition]
-
-                    msg = if (msg.startsWith("X ")) msg.substring(2) else "X $msg"
-                    val uimsg = if (msg.startsWith("X ")) "발신 제외" else "발신 포함"
-
-                    msgList[adapterPosition] = msg
-                    notifyDataSetChanged()
-
-                    Snackbar.make(itemView, uimsg, Snackbar.LENGTH_LONG).setAction("Action", null).show()
+                itemView.txtMsg.setOnClickListener {
+                    toggleDeleted()
                 }
+
+                itemView.itemContainer.setOnClickListener {
+                    toggleDeleted()
+                }
+            }
+
+            private fun toggleDeleted() {
+                var msg = msgList[adapterPosition]
+
+                msg = if (msg.startsWith("X ")) msg.substring(2) else "X $msg"
+                val uimsg = if (msg.startsWith("X ")) "발신 제외" else "발신 포함"
+
+                msgList[adapterPosition] = msg
+                notifyDataSetChanged()
+
+                Snackbar.make(itemView, uimsg, Snackbar.LENGTH_LONG).setAction("Action", null).show()
             }
 
         } // end of MyViewHolder

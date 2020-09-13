@@ -157,8 +157,6 @@
             android:textColor="#ffffff"
             android:textSize="22sp" />
 
-        <!--android:textAppearance="@style/TextAppearance.AppCompat.Large"-->
-
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvList"
             android:scrollbars="vertical"
