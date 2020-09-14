@@ -128,7 +128,7 @@ class ScrollingActivity : AppCompatActivity() {
             withContext(Dispatchers.IO) {
                 val da = YCalendar(numberOnly(dateAfter))
                 da.setHMS(0, 0, 0)
-                if(numberOnly(dateAfter) == "") da.addDate(-1)
+                if (numberOnly(dateAfter) == "") da.addDate(-1)
 
                 val db = YCalendar(numberOnly(dateBefore))
                 db.addDate(1)
@@ -174,22 +174,22 @@ class ScrollingActivity : AppCompatActivity() {
                 itemView.txtDivider.visibility = View.GONE
 
                 var msg = msgList[adapterPosition] + "abcdefghijklm"
-                msg = if(msg.startsWith("X ")) msg.substring(2) else msg
+                msg = if (msg.startsWith("X ")) msg.substring(2) else msg
                 val d = msg.substring(0, 10)
                 val c1 = YCalendar("yyyy-MM-dd", d)
-                if(c1.getYYYY_MM_DD() != d) return
+                if (c1.getYYYY_MM_DD() != d) return
 
                 itemView.txtDivider.text = c1.getDayStr()
 
-                if(adapterPosition == 0) {
+                if (adapterPosition == 0) {
                     itemView.txtDivider.visibility = View.VISIBLE
                     return
                 }
 
                 var msg1 = msgList[adapterPosition - 1] + "abcdefghijklm"
-                msg1 = if(msg.startsWith("X ")) msg1.substring(2) else msg1
-                val d1 = (msg1).substring(0, 10)
-                if(d1 != d) {
+                msg1 = if (msg1.startsWith("X ")) msg1.substring(2) else msg1
+                val d1 = msg1.substring(0, 10)
+                if (d1 != d) {
                     itemView.txtDivider.visibility = View.VISIBLE
                 }
             }
@@ -225,7 +225,6 @@ class ScrollingActivity : AppCompatActivity() {
             }
 
         } // end of MyViewHolder
-
 
 
         fun setList(list: MutableList<String>) {
@@ -366,7 +365,7 @@ class ScrollingActivity : AppCompatActivity() {
 
         val tonum = numberOnly(toNumber)
         list.forEach { x ->
-            if(x.startsWith("X ")) return@forEach
+            if (x.startsWith("X ")) return@forEach
 
             val msg = Message.getMessage(x)
 
