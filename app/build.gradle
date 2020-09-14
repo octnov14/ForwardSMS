@@ -9,8 +9,8 @@ android {
         applicationId "com.wrdn.forward_sms"
         minSdkVersion 28
         targetSdkVersion 29
-        versionCode 13
-        versionName "1.3"
+        versionCode 15
+        versionName "1.5"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

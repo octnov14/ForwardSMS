@@ -220,15 +220,17 @@ class YCalendar : GregorianCalendar {
     fun getDayStr(): String {
         val today = YCalendar()
 
-        val dStr = when (val n = getDaysBetween(today, this)) {
+        return when (val n = getDaysBetween(today, this)) {
+            -2 -> "그제"
+            -1 -> "어제"
             0 -> "오늘"
             1 -> "내일"
             2 -> "모레"
-            else -> "" + n + "일 후"
+            else -> {
+                if(n > 0) "" + n + "일 후"
+                else "" + -n + "일 전"
+            }
         }
-
-        return dStr
-
     }
 
     fun getMinuteStr(): String {
@@ -414,21 +416,26 @@ class YCalendar : GregorianCalendar {
         }
 
         fun getDaysBetween(d1: YCalendar, d2: YCalendar): Int {
+            var sign = 1
             val from: YCalendar
             val to: YCalendar
+
             if (d1 < d2) {
                 from = YCalendar(d1.getYYYYMMDD())
                 to = YCalendar(d2.getYYYYMMDD())
             } else {
+                sign = -1
                 from = YCalendar(d2.getYYYYMMDD())
                 to = YCalendar(d1.getYYYYMMDD())
             }
+
             var rtn = 0
             while (from < to) {
                 from.addDate(1)
                 rtn++
             }
-            return rtn
+
+            return rtn * sign
         }
 
         fun getWeekCountOfMonth(year: Int, month: Int): Int {

@@ -6,7 +6,6 @@ import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
@@ -18,7 +17,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -130,6 +128,8 @@ class ScrollingActivity : AppCompatActivity() {
             withContext(Dispatchers.IO) {
                 val da = YCalendar(numberOnly(dateAfter))
                 da.setHMS(0, 0, 0)
+                if(numberOnly(dateAfter) == "") da.addDate(-1)
+
                 val db = YCalendar(numberOnly(dateBefore))
                 db.addDate(1)
 
@@ -166,13 +166,39 @@ class ScrollingActivity : AppCompatActivity() {
                 itemView.txtMsg.text = msg.msg
 
                 setBgColor(msg.date)
+
+                setDivider()
+            }
+
+            private fun setDivider() {
+                itemView.txtDivider.visibility = View.GONE
+
+                var msg = msgList[adapterPosition] + "abcdefghijklm"
+                msg = if(msg.startsWith("X ")) msg.substring(2) else msg
+                val d = msg.substring(0, 10)
+                val c1 = YCalendar("yyyy-MM-dd", d)
+                if(c1.getYYYY_MM_DD() != d) return
+
+                itemView.txtDivider.text = c1.getDayStr()
+
+                if(adapterPosition == 0) {
+                    itemView.txtDivider.visibility = View.VISIBLE
+                    return
+                }
+
+                var msg1 = msgList[adapterPosition - 1] + "abcdefghijklm"
+                msg1 = if(msg.startsWith("X ")) msg1.substring(2) else msg1
+                val d1 = (msg1).substring(0, 10)
+                if(d1 != d) {
+                    itemView.txtDivider.visibility = View.VISIBLE
+                }
             }
 
             private fun setBgColor(msg: String) {
                 if (msg.startsWith("X ")) {
-                    itemView.setBackgroundResource(R.color.deletedMsgColor)
+                    itemView.itemContainer.setBackgroundResource(R.color.deletedMsgColor)
                 } else {
-                    itemView.setBackgroundResource(R.color.defaultMsgColor)
+                    itemView.itemContainer.setBackgroundResource(R.color.defaultMsgColor)
                 }
             }
 
