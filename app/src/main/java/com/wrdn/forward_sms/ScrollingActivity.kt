@@ -98,16 +98,7 @@ class ScrollingActivity : AppCompatActivity() {
             }
         }
 
-        reformatToNumber()
-    }
-
-    override fun onStart() {
-        super.onStart()
-
-        val da = YCalendar(numberOnly(dateAfter))
-        if (da.getYYYYMMDD() == YCalendar.displayYYYYMMDD()) {
-            query()
-        }
+        if(numberOnly(dateAfter) == "") query()
     }
 
     override fun onDestroy() {
