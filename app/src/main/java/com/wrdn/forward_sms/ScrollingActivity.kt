@@ -37,11 +37,14 @@ import kotlin.Comparator
 import kotlin.collections.ArrayList
 
 
+const val selectionMark = "● "
+
 class ScrollingActivity : AppCompatActivity() {
 
     private val SELECT_PHONE_NUMBER = 10002
     private val SEND_MMS = 10001
     private val multiplePermissionsCode = 100
+
 
     //필요한 퍼미션 리스트
     //원하는 퍼미션을 이곳에 추가하면 된다.
@@ -64,7 +67,7 @@ class ScrollingActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_scrolling)
         setSupportActionBar(toolbar) //setSupportActionBar(findViewById(R.id.toolbar))
-        toolbar_layout.title = "받은 문자 조회 후 한번에 전달할 수 있습니다" //findViewById<CollapsingToolbarLayout>(R.id.toolbar_layout).title = title
+        toolbar_layout.title = "조회 후, 보낼 문자를 터치하세요" //findViewById<CollapsingToolbarLayout>(R.id.toolbar_layout).title = title
 
 
         checkPermissions()
@@ -79,15 +82,18 @@ class ScrollingActivity : AppCompatActivity() {
         }
 
 
+        btnQuery.setOnClickListener { query() }
+        fab.setOnClickListener { showSendDialog() }
+
+        btnSelectAll.setOnClickListener { selectAllMsg(it) }
+        btnUnselectAll.setOnClickListener { unselectAllMsg(it) }
+
+
         dateAfter.setOnFocusChangeListener { v, hasFocus -> if (hasFocus) showDatePicker(v as EditText?) }
         dateAfter.setOnClickListener { showDatePicker(it as EditText?) }
 
         dateBefore.setOnFocusChangeListener { v, hasFocus -> if (hasFocus) showDatePicker(v as EditText?) }
         dateBefore.setOnClickListener { showDatePicker(it as EditText?) }
-
-
-        btnQuery.setOnClickListener { query() }
-        fab.setOnClickListener { showSendDialog() }
 
         toNumber.setOnFocusChangeListener { _, hasFocus ->
             reformatToNumber()
@@ -98,7 +104,7 @@ class ScrollingActivity : AppCompatActivity() {
             }
         }
 
-        if(numberOnly(dateAfter) == "") query()
+        if (numberOnly(dateAfter) == "") query()
     }
 
     override fun onDestroy() {
@@ -165,7 +171,7 @@ class ScrollingActivity : AppCompatActivity() {
                 itemView.txtDivider.visibility = View.GONE
 
                 var msg = msgList[adapterPosition] + "abcdefghijklm"
-                msg = if (msg.startsWith("X ")) msg.substring(2) else msg
+                msg = if (msg.startsWith(selectionMark)) msg.substring(2) else msg
                 val d = msg.substring(0, 10)
                 val c1 = YCalendar("yyyy-MM-dd", d)
                 if (c1.getYYYY_MM_DD() != d) return
@@ -178,7 +184,7 @@ class ScrollingActivity : AppCompatActivity() {
                 }
 
                 var msg1 = msgList[adapterPosition - 1] + "abcdefghijklm"
-                msg1 = if (msg1.startsWith("X ")) msg1.substring(2) else msg1
+                msg1 = if (msg1.startsWith(selectionMark)) msg1.substring(2) else msg1
                 val d1 = msg1.substring(0, 10)
                 if (d1 != d) {
                     itemView.txtDivider.visibility = View.VISIBLE
@@ -186,7 +192,7 @@ class ScrollingActivity : AppCompatActivity() {
             }
 
             private fun setBgColor(msg: String) {
-                if (msg.startsWith("X ")) {
+                if (msg.startsWith(selectionMark)) {
                     itemView.itemContainer.setBackgroundResource(R.color.deletedMsgColor)
                 } else {
                     itemView.itemContainer.setBackgroundResource(R.color.defaultMsgColor)
@@ -206,8 +212,8 @@ class ScrollingActivity : AppCompatActivity() {
             private fun toggleDeleted() {
                 var msg = msgList[adapterPosition]
 
-                msg = if (msg.startsWith("X ")) msg.substring(2) else "X $msg"
-                val uimsg = if (msg.startsWith("X ")) "발신 제외" else "발신 포함"
+                msg = if (msg.startsWith(selectionMark)) msg.substring(2) else selectionMark + msg
+                val uimsg = if (msg.startsWith(selectionMark)) "발신 포함" else "발신 제외"
 
                 msgList[adapterPosition] = msg
                 notifyDataSetChanged()
@@ -356,7 +362,7 @@ class ScrollingActivity : AppCompatActivity() {
 
         val tonum = numberOnly(toNumber)
         list.forEach { x ->
-            if (x.startsWith("X ")) return@forEach
+            if (!x.startsWith("● ")) return@forEach
 
             val msg = Message.getMessage(x)
 
@@ -432,6 +438,34 @@ class ScrollingActivity : AppCompatActivity() {
             show()
         }
         //Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG).setAction("Action", null).show()
+    }
+
+    private fun unselectAllMsg(v: View) {
+        var list = myAdapter.getList()
+
+        list.forEachIndexed { idx, x ->
+            if (!x.startsWith("● ")) return@forEachIndexed
+
+            list[idx] = x.substring(2)
+        }
+
+        myAdapter.setList(list)
+
+        Snackbar.make(v, "전체 해제 했습니다", Snackbar.LENGTH_LONG).setAction("Action", null).show()
+    }
+
+    private fun selectAllMsg(v: View) {
+        var list = myAdapter.getList()
+
+        list.forEachIndexed { idx, x ->
+            if (x.startsWith("● ")) return@forEachIndexed
+
+            list[idx] = selectionMark + x
+        }
+
+        myAdapter.setList(list)
+
+        Snackbar.make(v, "전체 선택 했습니다", Snackbar.LENGTH_LONG).setAction("Action", null).show()
     }
 
     private fun showDatePicker(ed: EditText?) {

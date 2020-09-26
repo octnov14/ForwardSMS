@@ -159,11 +159,42 @@
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvList"
-            android:scrollbars="vertical"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:layout_marginBottom="30dp"
+            android:scrollbars="vertical" />
+
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="25dp"
             android:layout_marginBottom="50dp"
-            />
+            >
+
+            <Button
+                android:id="@+id/btnSelectAll"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="35dp"
+                android:background="@color/colorAccent"
+                android:text="전체 선택"
+                android:textColor="#ffffff"
+                android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/btnUnselectAll"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="35dp"
+                android:layout_marginStart="15dp"
+                android:background="@color/colorAccent"
+                android:text="전체 해제"
+                android:textColor="#ffffff"
+                android:textSize="15sp" />
+
+        </LinearLayout>
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>
